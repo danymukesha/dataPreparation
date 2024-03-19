@@ -328,7 +328,7 @@ pca_plot <- ggplot2::ggplot(pca_data,
 pca_plot
 ```
 ```{r}
-png("../man/figures/pca_plot.png", width=1800, height=1400, res=200)
+png("../man/figures/pca_plot.png", width=1600, height=1200, res=220)
 print(pca_plot)
 dev.off() 
 ```

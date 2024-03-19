@@ -32,7 +32,7 @@ analysis (PCA).
 
 e.g.:
 
-![Figure 1: pca_plot](man/figures/pca_plot.png)
+![Figure 1: pca_plot](man/figures/pca_plot.png){width=70%}
 
 ## Data Processing Phase 2 Report
 
@@ -44,8 +44,8 @@ sPLSDA-batch, and percentile normalization.
 
 \
 
-![Figure 2: batch_correction2](man/figures/batch_correction2.png){width=80%}
+![Figure 2: batch_effect](man/figures/batch_correction2.png){width=80%}
 
-![Figure 3: batch_correction1](man/figures/batch_correction1.png){width=80%}
+![Figure 3: batch_correction](man/figures/batch_correction1.png){width=80%}
 
 
