@@ -1,0 +1,51 @@
+---
+output: github_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "man/figures/README-",
+  out.width = "100%"
+)
+```
+
+# dataPreparation
+
+<!-- badges: start -->
+
+<!-- badges: end -->
+
+## Data Processing Phase 1 Report
+
+This report outlines the data processing steps involved in phase 1. It
+covers various preprocessing tasks such as reformatting material names,
+adding missing phenotype data, selecting metadata, deduplication,
+imputation of missing values, and performing principal component
+analysis (PCA).
+
+e.g.:
+
+![Figure 1: pca_plot](man/figures/pca_plot.png)
+
+## Data Processing Phase 2 Report
+
+This report focuses on the data processing steps involved in phase 2. It
+encompasses filtering the data, transforming it using Compositional
+Log-Ratio (CLR) transformation, assessing batch effects, and applying
+batch correction methods such as removeBatchEffect, ComBat, PLSDA-batch,
+sPLSDA-batch, and percentile normalization.
+
+\
+
+![Figure 2: batch_correction2](man/figures/batch_correction2.png){width=80%}
+
+![Figure 3: batch_correction1](man/figures/batch_correction1.png){width=80%}
+
+

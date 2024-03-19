@@ -1,0 +1,335 @@
+---
+title: "Data Processing Phase 1 Report"
+output: 
+  rmarkdown::html_vignette:
+    toc: true
+    toc_depth: 2
+    number_sections: true
+vignette: >
+  %\VignetteIndexEntry{Data Processing Phase 1 Report}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+# Introduction
+
+This report outlines the data processing steps involved in phase 1. 
+It covers various preprocessing tasks such as reformatting material names,
+adding missing phenotype data, selecting metadata, deduplication, imputation
+of missing values, and performing principal component analysis (PCA).
+
+## Setup
+
+In this section, we set up the necessary libraries and configurations for
+the data processing tasks.
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup, warning=FALSE, message=FALSE}
+library(dataPreparation)
+library(readxl)
+library(stringr)
+library(dplyr)
+library(data.table)
+```
+
+## Data Loading
+
+We start by loading the raw data from an Excel file containing normalized data. 
+This data will be used for subsequent preprocessing steps.
+
+```{r data_loading}
+# Read the Excel file containing normalized data
+data <- read.table("../inst/extdata/allbatches_uM_clean.txt", sep = "\t", header = TRUE)
+```
+
+# Reformatting Material Names
+
+To ensure consistency and clarity in the material names, I perform
+reformatting of material names. This step involves mapping specific
+material names to standardized formats.
+
+```{r}
+rep_str <- c(
+  '20 (serum)' = 'serum',
+  '30 (plasma)' = 'plasma',
+  '302 (EDTA plasma)' = 'plasma'
+)
+
+data <- data %>%
+  mutate(Material = case_when(
+    Material %in% names(rep_str) ~ rep_str[Material],
+    TRUE ~ Material
+  ))
+```
+
+# Processing Sample.Identification
+
+I perform then reformatting of Sample names. This step involves mapping specific
+sample names to standardized formats.
+
+```{r}
+data$`Sample.Identification` <-
+  ifelse(
+    substr(data$`Sample.Identification`, 1, 1) == "F",
+    substr(data$`Sample.Identification`, 1, 8),
+    data$`Sample.Identification`
+  )
+```
+
+# Adding Missing Phenotype Data
+
+Phenotype data is essential for downstream analysis. In this step,
+I add missing phenotype data to the main dataset by merging it with
+additional information from external sources.
+
+I developed a function *ad-hoc* `dataPreparation::add_missing_phenotypes`
+
+```{r}
+# Load additional phenotype information
+all_samples_info <- fread(input = "../inst/extdata/additional_info.tsv", sep = "\t")
+colnames(all_samples_info) <- gsub(pattern = " ", replacement = ".", x = colnames(all_samples_info))
+
+# Add missing phenotype information
+data <- dataPreparation::add_missing_phenotypes(data, all_samples_info)
+data <- data %>% relocate(Gender, Age, .before = Sample.Description)
+```
+
+# Selecting Metadata
+
+Metadata selection involves choosing relevant columns from the dataset
+that provide information about each sample. These metadata columns
+are crucial for sample identification and downstream analysis.
+
+```{r}
+# Select metadata
+allmetadata <- data[,c("Sample.Identification", 
+                       "Sample.Type", 
+                       "Sample.Description", 
+                       "Gender", 
+                       "Age", 
+                       "Material")]
+
+allmetadata <- unique(allmetadata)
+
+# Filter metadata for samples
+allmetadata <- allmetadata %>%
+  filter(Sample.Type == "Sample")
+
+# Filter data for samples
+data <- data %>%
+  filter(Sample.Type == "Sample")
+
+# Remove temporary objects
+rm(list = setdiff(ls(), c("allmetadata", "data", "add_missing_phenotypes", "fncols",  "all_samples_info")))
+
+data %>%
+  head() %>%
+  tibble::as.tibble()
+```
+
+# Writing Metadata and Data
+
+After selecting the metadata and preparing the dataset, I write
+the metadata and cleaned data into separate CSV files for future
+reference and analysis.
+
+```{r}
+# Write metadata to a CSV file
+write.table(allmetadata, file = "../inst/data_to_use/all_metadata.csv", row.names = FALSE, sep = ",")
+
+# Write data to a CSV file
+write.table(data, file = "../inst/data_to_use/all_batches.csv", sep = ",", row.names = FALSE, col.names = TRUE, quote = FALSE)
+```
+
+# Deduplication
+
+Deduplication is necessary to handle cases where multiple entries for
+the same sample exist. I aggregate duplicated rows by calculating
+the mean of numeric columns and assigning a common submission name.
+
+```{r}
+# Use the aggregate function to calculate the mean for duplicated rows
+# Merge the data by taking the mean of numeric columns and assigning the Submission.Name as "Plate 1-2"
+df_deduplicated <- data %>%
+  group_by(Sample.Identification) %>%
+  summarize(across(where(is.numeric), mean),
+            Submission.Name = if_else(n() > 1, "Plate 1-2", Submission.Name[1]),
+            Sample.Description = Sample.Description[1],
+            Material = Material[1],
+            Sample.Type = Sample.Type[1],
+            Gender = Gender[1]) %>%
+  ungroup() 
+
+df_deduplicated <- df_deduplicated %>% relocate(Sample.Type, 
+                                                Sample.Description, 
+                                                Gender, 
+                                                Age, 
+                                                Material, 
+                                                Submission.Name,
+                                                .after = Sample.Identification)
+
+meta_deduplicated <- unique(allmetadata)
+
+# Merge metadata and raw_data using a common key
+combined_data <- df_deduplicated
+
+# Remove temporary objects
+rm(list = setdiff(
+  ls(),
+  c(
+    "allmetadata",
+    "data",
+    "add_missing_phenotypes",
+    "fncols",
+    "combined_data"
+  )
+))
+```
+
+# Adding Cohort Information
+
+Cohort information provides context about the sample population. 
+Here, I add cohort information based on the sample description,
+distinguishing between different cohorts.
+
+```{r}
+combined_data$Cohort <- NA
+combined_data[grepl(pattern = "AD",
+                     substr(
+                       combined_data$Sample.Description,
+                       start = 3,
+                       stop = 5
+                     )), ]$Cohort <- "AD"
+combined_data[!grepl(pattern = "AD",
+                      substr(
+                        combined_data$Sample.Description,
+                        start = 3,
+                        stop = 5
+                      )), ]$Cohort <-
+combined_data[!grepl(pattern = "AD",
+                      substr(
+                        combined_data$Sample.Description,
+                        start = 3,
+                        stop = 5
+                      )), ]$Sample.Description
+combined_data <- combined_data %>%
+  relocate(Cohort, .after = Sample.Description)
+
+colnames(combined_data)[1] <- "sampleID"
+colnames(combined_data)[4] <- "Allgr"
+```
+
+# Writing Combined Data
+
+After deduplication and cohort assignment, I write the combined and
+processed data into a CSV file for further analysis.
+
+```{r}
+write.csv(x = combined_data, file = "../inst/data_to_use/CLEAN_combined_data_allbatches.csv", row.names = FALSE)
+```
+
+# Preprocessing Data
+
+In this step, I preprocess the data by removing columns with high missingness
+and imputing missing values using the k-nearest neighbors (knn) algorithm.
+
+I developed a function ad-hoc `dataPreparation::remove_high_missingness`
+
+```{r}
+# Select the raw data
+data <- combined_data %>%
+  dplyr::select(-c(1:8))
+
+# Remove rows with high missingness and impute missing values with k-nearest neighbors (knn)
+elaborated_data <- dataPreparation::remove_high_missingness(data)
+imputed_data <- elaborated_data$cleaned_data %>%
+  as.matrix() %>%
+  impute::impute.knn()
+
+# Select categories
+categories <- combined_data %>%
+  dplyr::slice(-(elaborated_data$row_missing_percent)) %>%
+  dplyr::select(Sample.Description, Submission.Name)
+
+# Add categories to imputed data
+imputed_data$categories <- categories
+
+# Remove temporary objects
+rm(list = setdiff(
+  ls(),
+  c(
+    "allmetadata",
+    "data",
+    "add_missing_phenotypes",
+    "fncols",
+    "combined_data",
+    "elaborated_data",
+    "imputed_data",
+    "remove_high_missingness"
+  )
+))
+```
+
+# Writing imputed data
+
+Here, I save data where rows with high missingness were removed and
+impute missing values with k-nearest neighbors (knn).
+
+```{r}
+write.csv(x = combined_data, file = "../inst/data_to_use/imputed_data_allbatches.csv", row.names = FALSE)
+usethis::use_data(imputed_data, overwrite = TRUE)
+```
+
+# Performing Principal Component Analysis (PCA)
+
+Principal Component Analysis (PCA) is a dimensionality reduction technique
+that helps visualize the variation in the dataset. Here, I perform PCA on
+the preprocessed data and create a PCA plot for visualization.
+
+```{r}
+# Perform PCA
+pca_result <- prcomp(imputed_data$data, scale. = TRUE, center = TRUE)
+
+# Extract PCA scores
+pca_scores <- as.data.frame(pca_result$x)
+
+# Combine PCA scores with categories for visualization
+pca_data <- cbind(pca_scores, imputed_data$categories)
+
+# Create PCA plot
+pca_plot <- ggplot2::ggplot(pca_data, 
+                            ggplot2::aes(x = PC1, y = PC2, 
+                                         color = Submission.Name, 
+                                         shape = Sample.Description)) +
+    ggplot2::geom_point(size = 2) +
+    ggplot2::scale_shape_manual(values = c(16, 17, 18, 19)) +
+    ggplot2::theme_bw() +
+    ggplot2::labs(
+      title = "PCA Plot",
+      x = paste0(
+        "PC1 (Explained Variance: ",
+        round(pca_result$sdev[1] ^ 2 / sum(pca_result$sdev ^ 2) * 100, 2),
+        "%)"
+      ),
+      y = paste0(
+        "PC2 (Explained Variance: ",
+        round(pca_result$sdev[2] ^ 2 / sum(pca_result$sdev ^ 2) * 100, 2),
+        "%)"
+      )
+    )
+
+# Display PCA plot
+pca_plot
+```
+```{r}
+png("../man/figures/pca_plot.png", , width = 500, height = 400)
+print(pca_plot)
+dev.off() 
+```
+

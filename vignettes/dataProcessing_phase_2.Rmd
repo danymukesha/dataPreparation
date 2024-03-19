@@ -1,0 +1,380 @@
+---
+title: "Data Processing Phase 2 Report"
+output: 
+  rmarkdown::html_vignette:
+    toc: true
+    toc_depth: 2
+    number_sections: true
+vignette: >
+  %\VignetteIndexEntry{Data Processing Phase 2 Report}
+  %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{knitr::rmarkdown}
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+# Introduction
+
+This report focuses on the data processing steps involved in phase 2. It
+encompasses filtering the data, transforming it using Compositional
+Log-Ratio (CLR) transformation, assessing batch effects, and applying
+batch correction methods such as removeBatchEffect, ComBat, PLSDA-batch,
+sPLSDA-batch, and percentile normalization.
+
+## Setup
+
+In this section, we set up the necessary libraries and configurations
+for the data processing tasks.
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r, include=FALSE}
+# Load necessary libraries
+library(dataPreparation)
+library(PLSDAbatch)
+library(mixOmics)
+library(vegan)
+library(UpSetR)
+```
+
+## Data Loading
+
+```{r}
+categories <- dataPreparation::imputed_data$categories
+imputed_data <- dataPreparation::imputed_data
+```
+
+# Preparing Data for Analysis
+
+We begin by filtering the data using the `PreFL()` function from the
+PLSDAbatch package to remove features with zero variance. This step is
+crucial for reducing noise and improving the quality of the dataset.
+
+```{r}
+# Filter the data
+filter.res <- PLSDAbatch::PreFL(data = imputed_data$data, 
+                                keep.spl = 0, 
+                                keep.var = 0.00)
+filter <- filter.res$data.filter
+
+# Calculate zero proportion before filtering
+filter.res$zero.prob
+
+# Calculate zero proportion after filtering
+sum(filter == 0) / (nrow(filter) * ncol(filter))
+```
+
+# Transforming Data
+
+Next, I transform the filtered data using the CLR transformation method
+from the mixOmics package. This transformation is essential for handling
+compositional data and preparing it for further analysis.
+
+```{r}
+# Perform CLR transformation
+clr <- mixOmics::logratio.transfo(X = filter, logratio = 'CLR', offset = 1) 
+class(clr) = 'matrix'
+```
+
+# Assessing Batch Effects
+
+Before applying batch correction methods, we assess batch effects in the
+data using principal component analysis (PCA) and variance partitioning
+analysis (pRDA). Understanding the sources of variation in the data is
+crucial for selecting appropriate batch correction techniques.
+
+```{r}
+# Perform PCA
+pca.before <- mixOmics::pca(clr, ncomp = 4, scale = TRUE)
+
+batch = factor(categories$Submission.Name, levels = unique(categories$Submission.Name))
+
+descr = as.factor(categories$Sample.Description)
+
+names(batch) <- names(descr) <- rownames(categories)
+
+# Perform pRDA
+factors.df <- data.frame(trt = descr, batch = batch)
+rda.before <- vegan::varpart(clr, ~ descr, ~ batch, 
+                             data = factors.df, 
+                             scale = TRUE)
+rda.before$part$indfract
+```
+
+# Batch Correction
+
+I apply various batch correction methods, including `removeBatchEffect`,
+`ComBat`, `PLSDA-batch`, and `sPLSDA-batch`, to mitigate batch effects
+in the data. These methods adjust for technical variation introduced by
+batch processing and improve the accuracy of downstream analysis.
+
+```{r}
+# Managing batch effects
+clr <- clr[seq_len(nrow(clr)), seq_len(ncol(clr))]
+lm <- PLSDAbatch::linear_regres(data = clr, trt = descr, 
+                       batch.fix = batch, type = 'linear model')
+
+p <- sapply(lm$lm.table, function(x){x$coefficients[2,4]})
+p.adj <- p.adjust(p = p, method = 'fdr')
+
+performance::check_model(lm$model$AC.0.0.)
+
+mod <- model.matrix( ~ descr)
+```
+
+```{r}
+# Applying removeBatchEffect
+rBE <- t(limma::removeBatchEffect(t(clr), batch = batch, 
+                              design = mod))
+
+# Applying ComBat
+ComBat <- t(sva::ComBat(t(clr), batch = batch, 
+                      mod = mod, par.prior = FALSE))
+
+# Applying PLSDA-batch
+trt.tune <- mixOmics::plsda(X = clr, Y = descr, ncomp = 5)
+trt.tune$prop_expl_var #1
+ad.batch.tune <- PLSDAbatch::PLSDA_batch(X = clr, 
+                             Y.trt = descr, Y.bat = batch,
+                             ncomp.trt = 1, ncomp.bat = 10)
+ad.batch.tune$explained_variance.bat #4
+PLSDA_batch.res <- PLSDAbatch::PLSDA_batch(X = clr, 
+                                  Y.trt = descr, Y.bat = batch,
+                                  ncomp.trt = 1, ncomp.bat = 4)
+PLSDA_batch <- PLSDA_batch.res$X.nobatch
+
+# Applying sPLSDA-path
+set.seed(777)
+test.keepX = c(seq(1, 10, 1), seq(20, 100, 10), 
+                  seq(150, 231, 50), 231)
+trt.tune.v <- mixOmics::tune.splsda(X = clr, Y = descr, 
+                             ncomp = 1, test.keepX = test.keepX, 
+                             validation = 'Mfold', folds = 4, 
+                             nrepeat = 50)
+trt.tune.v$choice.keepX
+batch.tune <- PLSDAbatch::PLSDA_batch(X = clr, 
+                             Y.trt = descr, Y.bat = batch,
+                             ncomp.trt = 1, keepX.trt = 100,
+                             ncomp.bat = 10)
+batch.tune$explained_variance.bat #4
+sum(batch.tune$explained_variance.bat$Y[seq_len(4)])
+sPLSDA_batch.res <- PLSDAbatch::PLSDA_batch(X = clr, 
+                                   Y.trt = descr, Y.bat = batch,
+                                   ncomp.trt = 1, keepX.trt = 100,
+                                   ncomp.bat = 4)
+sPLSDA_batch <- sPLSDA_batch.res$X.nobatch
+
+# Applying PN
+PN <- PLSDAbatch::percentile_norm(data = clr, batch = batch, 
+                         trt = descr, ctrl.grp = '0-0.5')
+
+```
+
+```{r eval=FALSE, include=FALSE}
+# # RUVIII
+# replicates <- categories |>
+#   colnames()
+# 
+# # empirical negative controls
+# empir.p <- c()
+# for(e in seq_len(ncol(clr))){
+#   empir.lm <- lm(clr[,e] ~ descr)
+#   empir.p[e] <- summary(empir.lm)$coefficients[2,4]
+# }
+# empir.p.adj <- p.adjust(p = empir.p, method = 'fdr')
+# nc <- empir.p.adj > 0.05
+# # estimate k
+# # k.res <- kyotil::getK(Y = clr, X = descr, ctl = nc)
+# k.res <- kyotil::getK(X = descr, kernel = "ibs", X2 = clr)
+# k <- k.res$k
+# 
+# replicates.matrix <- ruv::replicate.matrix(replicates)
+# 
+# RUVIII <- ruv::RUVIII(Y = clr, M = replicates.matrix,
+#                     ctl = nc, k = k)
+# rownames(RUVIII) <- rownames(clr)
+```
+
+# Evaluating Batch Correction
+
+To evaluate the effectiveness of batch correction methods, I compare the
+variance explained by treatment and batch factors before and after
+correction. I also assess the impact of correction on the distribution
+of samples using scatter plots and density plots.
+
+```{r}
+# Perform PCA after batch correction
+pca.rBE <- mixOmics::pca(rBE, ncomp = 3, scale = TRUE)
+pca.ComBat <- mixOmics::pca(ComBat, ncomp = 3, scale = TRUE)
+pca.PLSDA_batch <- mixOmics::pca(PLSDA_batch, ncomp = 3, scale = TRUE)
+pca.sPLSDA_batch <- mixOmics::pca(sPLSDA_batch, ncomp = 3, scale = TRUE)
+```
+
+# Selecting Features
+
+Finally, we select features that are relevant for discrimination between
+treatment groups using sparse partial least squares discriminant
+analysis (sPLSDA). This step helps identify biomarkers or features that
+contribute significantly to group separation and biological
+interpretation.
+
+```{r}
+# order batches
+batch <- factor(categories$Submission.Name, 
+               levels = unique(categories$Submission.Name))
+
+pca.before.plot <- PLSDAbatch::Scatter_Density(object = pca.before, 
+                                      batch = batch, 
+                                      trt = descr, 
+                                      title = 'Before correction')
+pca.rBE.plot <- PLSDAbatch::Scatter_Density(object = pca.rBE, 
+                                   batch = batch, 
+                                   trt = descr, 
+                                   title = 'removeBatchEffect')
+pca.ComBat.plot <- PLSDAbatch::Scatter_Density(object = pca.ComBat, 
+                                      batch = batch, 
+                                      trt = descr, 
+                                      title = 'ComBat')
+pca.PLSDA_batch.plot <- PLSDAbatch::Scatter_Density(object = pca.PLSDA_batch, 
+                                           batch = batch, 
+                                           trt = descr, 
+                                           title = 'PLSDA-batch')
+pca.sPLSDA_batch.plot <- PLSDAbatch::Scatter_Density(object = pca.sPLSDA_batch, 
+                                            batch = batch, 
+                                            trt = descr, 
+                                            title = 'sPLSDA-batch')
+
+g <- ggpubr::ggarrange(pca.before.plot, 
+          pca.rBE.plot,
+          pca.ComBat.plot,
+          pca.PLSDA_batch.plot,
+          pca.sPLSDA_batch.plot,
+          labels = c("A", "B", "C", "D", "E"),
+          ncol = 2, nrow = 3)
+```
+
+```{r include=FALSE}
+grDevices::png("../man/figures/batch_correction1.png", units="px", width=2100, height=2100, res=210)
+print(g)
+dev.off()
+```
+
+```{r}
+corrected.list <- list(`Before correction` = clr, 
+                          removeBatchEffect = rBE, 
+                          ComBat = ComBat,
+                          `PLSDA-batch` = PLSDA_batch,
+                          `sPLSDA-batch` = sPLSDA_batch
+                          # `Percentile Normalisation` = PN,
+                          # RUVIII = RUVIII
+                          )
+```
+
+```{r}
+factors.df <- data.frame(trt = descr, batch = batch)
+
+prop.df <- data.frame("Disease Pheno" = NA, Batch = NA, 
+                         Intersection = NA, 
+                         Residuals = NA) 
+for(i in seq_len(length(corrected.list))){
+  rda.res = vegan::varpart(corrected.list[[i]], ~ descr, ~ batch,
+                    data = factors.df, scale = TRUE)
+  prop.df[i, ] <- rda.res$part$indfract$Adj.R.squared}
+
+rownames(prop.df) = names(corrected.list)
+
+prop.df <- prop.df[, c(1,3,2,4)]
+
+prop.df[prop.df < 0] = 0
+prop.df <- as.data.frame(t(apply(prop.df, 1, 
+                                    function(x){x/sum(x)})))
+
+PLSDAbatch::partVar_plot(prop.df = prop.df)
+
+```
+
+## other methods
+
+```{r}
+d <- dataPreparation::visualize_batch_correction(corrected_list = corrected.list,
+                                            visualization_type = "barplot")
+d
+```
+
+```{r include=FALSE}
+png("../man/figures/batch_correction2.png", units="px", width=2200, height=1100, res=300)
+print(d)
+dev.off()
+```
+
+
+
+```{r}
+splsda.select <- list()
+for(i in seq_len(length(corrected.list))){
+  splsda.res <- mixOmics::splsda(X = corrected.list[[i]], Y = descr, 
+                       ncomp = 3, keepX = rep(50,3))
+  select.res <- mixOmics::selectVar(splsda.res, comp = 1)$name
+  splsda.select[[i]] <- select.res
+}
+names(splsda.select) <- names(corrected.list)
+
+# can only visualize 5 methods
+splsda.select <- splsda.select[seq_len(5)]
+
+splsda.upsetR <- UpSetR::fromList(splsda.select)
+
+p <-  UpSetR::upset(splsda.upsetR, main.bar.color = 'gray36',
+      sets.bar.color = PLSDAbatch::pb_color(c(25:22,20)), matrix.color = 'gray36',
+      order.by = 'freq', empty.intersections = 'on',
+      queries = list(list(query = intersects, 
+                          params = list('Before correction'), 
+                          color = PLSDAbatch::pb_color(20), active = TRUE),
+                     list(query = intersects, 
+                          params = list('removeBatchEffect'), 
+                          color = PLSDAbatch::pb_color(22), active = TRUE),
+                     list(query = intersects, 
+                          params = list('ComBat'), 
+                          color = PLSDAbatch::pb_color(23), active = TRUE),
+                     list(query = intersects, 
+                          params = list('PLSDA-batch'), 
+                          color = PLSDAbatch::pb_color(24), active = TRUE),
+                     list(query = intersects, 
+                          params = list('sPLSDA-batch'), 
+                          color = PLSDAbatch::pb_color(25), active = TRUE)))
+
+```
+
+# Display Up
+
+```{r}
+p
+```
+
+```{r include=FALSE}
+png("../man/figures/splsda_upsetR.png")
+print(p)
+dev.off()
+```
+
+
+# Conclusion
+
+In conclusion, this report highlights the importance of comprehensive
+data processing and batch correction techniques in ensuring the
+reliability and interpretability of metabolomic data. By systematically
+addressing batch effects and selecting informative features, I can
+improve the robustness f downstream analyses and enhance the
+understanding of biological phenomena.
+
+This marks the end of the Data Processing Phase 2 Report.
+
+# Clean up environment
+
+rm(list = ls())
