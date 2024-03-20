@@ -36,3 +36,4 @@ Imports:
     UpSetR,
     usethis,
     vegan
+Remotes: git@github.com:EvaYiwenWang/PLSDAbatch.git@main
