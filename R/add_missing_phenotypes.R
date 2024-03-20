@@ -4,6 +4,8 @@
 #'  from a metadata table.
 #'
 #' @param mt A data frame containing the samples.
+#' @param all_samples_info A data frame containing information of missing
+#' phenotypes.
 #' @param skip_descr Logical indicating whether to skip adding
 #' Sample.Description (default is FALSE).
 #' @param skip_mat Logical indicating whether to skip adding
@@ -33,7 +35,7 @@ add_missing_phenotypes <- function(mt, all_samples_info, skip_descr = FALSE, ski
       Gender <- all_samples_info[i, ]$Gender
       Age <- all_samples_info[i, ]$Age
       Sample_Id <- all_samples_info[i, ]$Patient.reference
-      Material <- data[i, ]$Material
+      Material <- mt[i, ]$Material
 
       if (skip_descr == FALSE) {
         mt[j, ]$Sample.Description <- Sample_Descr

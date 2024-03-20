@@ -20,5 +20,6 @@ A list containing the PCA results, including the principal
 component scores and other attributes.
 }
 \description{
-This function performs Principal Component Analysis (PCA) on the input data.
+This function performs Principal Component Analysis (PCA)
+ on the input data.
 }

@@ -20,6 +20,7 @@ knitr::opts_chunk$set(
 
 <!-- badges: start -->
 
+[![R-CMD-check](https://github.com/danymukesha/dataPreparation/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/danymukesha/dataPreparation/actions/workflows/R-CMD-check.yaml)
 <!-- badges: end -->
 
 ## Data Processing Phase 1 Report
@@ -32,7 +33,7 @@ analysis (PCA).
 
 e.g.:
 
-![Figure 1: pca_plot](man/figures/pca_plot.png){width=70%}
+![Figure 1: pca_plot](man/figures/pca_plot.png){width=50%}
 
 ## Data Processing Phase 2 Report
 
@@ -42,10 +43,13 @@ Log-Ratio (CLR) transformation, assessing batch effects, and applying
 batch correction methods such as removeBatchEffect, ComBat, PLSDA-batch,
 sPLSDA-batch, and percentile normalization.
 
-\
 
-![Figure 2: batch_effect](man/figures/batch_correction2.png){width=80%}
+e.g.:
 
-![Figure 3: batch_correction](man/figures/batch_correction1.png){width=80%}
+![Figure 2: batch_effect](man/figures/batch_correction2.png){width=70%}
+
+<br>
+
+![Figure 3: batch_correction](man/figures/batch_correction1.png){width=70%}
 
 

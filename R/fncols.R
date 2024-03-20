@@ -1,9 +1,11 @@
 #' Fill Missing Columns with NA Values
 #'
-#' This function fills missing columns in a data frame with NA values based on the specified column names.
+#' This function fills missing columns in a data frame with NA values
+#'  based on the specified column names.
 #'
 #' @param data A data frame.
-#' @param cname A character vector specifying column names to be filled with NA values.
+#' @param cname A character vector specifying column names to be filled
+#'  with NA values.
 #'
 #' @return A data frame with missing columns filled with NA values.
 #'

@@ -9,11 +9,13 @@ fncols(data, cname)
 \arguments{
 \item{data}{A data frame.}
 
-\item{cname}{A character vector specifying column names to be filled with NA values.}
+\item{cname}{A character vector specifying column names to be filled
+with NA values.}
 }
 \value{
 A data frame with missing columns filled with NA values.
 }
 \description{
-This function fills missing columns in a data frame with NA values based on the specified column names.
+This function fills missing columns in a data frame with NA values
+ based on the specified column names.
 }

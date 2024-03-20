@@ -1,6 +1,7 @@
 #' Perform Principal Component Analysis (PCA)
 #'
-#' This function performs Principal Component Analysis (PCA) on the input data.
+#' This function performs Principal Component Analysis (PCA)
+#'  on the input data.
 #'
 #' @param data The input data frame.
 #' @param scale_data Logical indicating whether to scale the data
@@ -12,9 +13,13 @@
 #' component scores and other attributes.
 #'
 #' @export
-perform_pca <- function(data, scale_data = TRUE, center_data = TRUE) {
+perform_pca <- function(data,
+                        scale_data = TRUE,
+                        center_data = TRUE) {
   # Perform PCA
-  pca_result <- stats::prcomp(data, scale. = scale_data, center = center_data)
+  pca_result <- stats::prcomp(data,
+                              scale. = scale_data,
+                              center = center_data)
 
   # Extract principal component scores
   pca_scores <- as.data.frame(pca_result$x)

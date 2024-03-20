@@ -14,6 +14,9 @@ add_missing_phenotypes(
 \arguments{
 \item{mt}{A data frame containing the samples.}
 
+\item{all_samples_info}{A data frame containing information of missing
+phenotypes.}
+
 \item{skip_descr}{Logical indicating whether to skip adding
 Sample.Description (default is FALSE).}
 

@@ -40,12 +40,13 @@ library(data.table)
 
 ## Data Loading
 
-We start by loading the raw data from an Excel file containing normalized data. 
+We start by loading the raw data from an Excel file containing normalized data.
 This data will be used for subsequent preprocessing steps.
 
 ```{r data_loading}
 # Read the Excel file containing normalized data
-data <- read.table("../inst/extdata/allbatches_uM_clean.txt", sep = "\t", header = TRUE)
+data <- read.table("../inst/extdata/allbatches_uM_clean.txt", 
+                   sep = "\t", header = TRUE)
 ```
 
 # Reformatting Material Names
@@ -70,8 +71,8 @@ data <- data %>%
 
 # Processing Sample.Identification
 
-I perform then reformatting of Sample names. This step involves mapping specific
-sample names to standardized formats.
+I perform then reformatting of Sample names. This step involves mapping s
+pecific sample names to standardized formats.
 
 ```{r}
 data$`Sample.Identification` <-
@@ -92,12 +93,25 @@ I developed a function *ad-hoc* `dataPreparation::add_missing_phenotypes`
 
 ```{r}
 # Load additional phenotype information
-all_samples_info <- fread(input = "../inst/extdata/additional_info.tsv", sep = "\t")
-colnames(all_samples_info) <- gsub(pattern = " ", replacement = ".", x = colnames(all_samples_info))
+all_samples_info <- 
+  data.table::fread(input = "../inst/extdata/additional_info.tsv", 
+                    sep = "\t")  |>
+  as.data.frame()
+colnames(all_samples_info) <- gsub(pattern = " ", 
+                                   replacement = ".", 
+                                   x = colnames(all_samples_info))
+```
 
+```{r}
 # Add missing phenotype information
 data <- dataPreparation::add_missing_phenotypes(data, all_samples_info)
-data <- data %>% relocate(Gender, Age, .before = Sample.Description)
+```
+
+```{r}
+data <- data |>
+  dplyr::relocate(Gender, 
+                  Age, 
+                  .before = Sample.Description)
 ```
 
 # Selecting Metadata
@@ -126,7 +140,11 @@ data <- data %>%
   filter(Sample.Type == "Sample")
 
 # Remove temporary objects
-rm(list = setdiff(ls(), c("allmetadata", "data", "add_missing_phenotypes", "fncols",  "all_samples_info")))
+rm(list = setdiff(ls(), c("allmetadata", 
+                          "data", 
+                          "add_missing_phenotypes", 
+                          "fncols",  
+                          "all_samples_info")))
 
 data %>%
   head() %>%
@@ -231,7 +249,7 @@ After deduplication and cohort assignment, I write the combined and
 processed data into a CSV file for further analysis.
 
 ```{r}
-write.csv(x = combined_data, file = "../inst/data_to_use/CLEAN_combined_data_allbatches.csv", row.names = FALSE)
+# write.csv(x = combined_data, file = "../inst/data_to_use/CLEAN_combined_data_allbatches.csv", row.names = FALSE)
 ```
 
 # Preprocessing Data

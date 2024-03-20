@@ -4,25 +4,39 @@
 \alias{visualize_batch_correction}
 \title{Visualize Batch Correction Effects}
 \usage{
-visualize_batch_correction(corrected_list, visualization_type = "boxplot")
+visualize_batch_correction(
+  corrected_list,
+  categories,
+  visualization_type = "boxplot"
+)
 }
 \arguments{
 \item{corrected_list}{A list containing corrected data matrices.}
 
-\item{visualization_type}{A character string specifying the type of visualization.
-It can be either "boxplot" or "barplot".}
+\item{categories}{Classification of samples}
+
+\item{visualization_type}{A character string specifying the type
+of visualization.
+                         It can be either "boxplot" or "barplot".}
 }
 \value{
 A ggplot object representing the visualization.
 }
 \description{
-This function visualizes the effects of batch correction methods by generating boxplot or barplot.
+This function visualizes the effects of batch correction methods
+by generating boxplot or barplot.
 }
 \examples{
+#load correct.list from dataPreparation
+corrected_list <- dataPreparation::corrected_list
+categories <- dataPreparation::imputed_data$categories
+
 # Visualize batch correction effects using boxplot
-visualize_batch_correction(corrected_list, visualization_type = "boxplot")
+visualize_batch_correction(corrected_list, categories,
+        visualization_type = "boxplot")
 
 # Visualize batch correction effects using barplot
-visualize_batch_correction(corrected_list, visualization_type = "barplot")
+visualize_batch_correction(corrected_list, categories,
+        visualization_type = "barplot")
 
 }

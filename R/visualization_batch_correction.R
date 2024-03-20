@@ -1,22 +1,38 @@
 #' Visualize Batch Correction Effects
 #'
-#' This function visualizes the effects of batch correction methods by generating boxplot or barplot.
+#' This function visualizes the effects of batch correction methods
+#' by generating boxplot or barplot.
 #'
 #' @param corrected_list A list containing corrected data matrices.
-#' @param visualization_type A character string specifying the type of visualization.
+#' @param visualization_type A character string specifying the type
+#' of visualization.
 #'                          It can be either "boxplot" or "barplot".
+#' @param categories Classification of samples
 #' @return A ggplot object representing the visualization.
 #'
 #' @examples
+#' #load correct.list from dataPreparation
+#' corrected_list <- dataPreparation::corrected_list
+#' categories <- dataPreparation::imputed_data$categories
+#'
 #' # Visualize batch correction effects using boxplot
-#' visualize_batch_correction(corrected_list, visualization_type = "boxplot")
+#' visualize_batch_correction(corrected_list, categories,
+#'         visualization_type = "boxplot")
 #'
 #' # Visualize batch correction effects using barplot
-#' visualize_batch_correction(corrected_list, visualization_type = "barplot")
+#' visualize_batch_correction(corrected_list, categories,
+#'         visualization_type = "barplot")
 #'
 #' @export
-visualize_batch_correction <- function(corrected_list, visualization_type = "boxplot") {
-  require(ggplot2)
+visualize_batch_correction <- function(corrected_list, categories,
+                                       visualization_type = "boxplot") {
+
+  batch = factor(categories$Submission.Name,
+                 levels = unique(categories$Submission.Name))
+
+  descr = as.factor(categories$Sample.Description)
+
+  names(batch) <- names(descr) <- rownames(categories)
 
   # other methods
   corr_scale.list <- lapply(corrected_list,
@@ -41,7 +57,8 @@ visualize_batch_correction <- function(corrected_list, visualization_type = "box
   if (visualization_type == "boxplot") {
     boxp.list <- lapply(r_values.list, function(r_values) {
       data.frame(r2 = c(r_values[, 'trt'], r_values[, 'batch']),
-                 Effects = as.factor(rep(c('Treatment','Batch'), each = length(r2))))
+                 Effects = as.factor(rep(c('Disease Pheno','Batch'),
+                                         each = length(r2))))
     })
 
     r2.boxp <- do.call(rbind, boxp.list)
@@ -53,11 +70,11 @@ visualize_batch_correction <- function(corrected_list, visualization_type = "box
     p <- ggplot(r2.boxp, aes(x = Effects, y = r2, fill = Effects)) +
       geom_boxplot(alpha = 0.80) +
       theme_bw() +
-      theme(text = element_text(size = 18),
+      theme(text = element_text(size = 10.6),
             axis.title.x = element_blank(),
             axis.title.y = element_blank(),
-            axis.text.x = element_text(angle = 60, hjust = 1, size = 18),
-            axis.text.y = element_text(size = 18),
+            axis.text.x = element_text(angle = 40, hjust = 1, size = 11),
+            axis.text.y = element_text(size = 11),
             panel.grid.minor.x = element_blank(),
             panel.grid.major.x = element_blank(),
             legend.position = "right") +

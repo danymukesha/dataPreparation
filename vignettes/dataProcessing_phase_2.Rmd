@@ -39,6 +39,7 @@ knitr::opts_chunk$set(
 library(dataPreparation)
 library(PLSDAbatch)
 library(mixOmics)
+library(patchwork)
 library(vegan)
 library(UpSetR)
 ```
@@ -302,8 +303,12 @@ PLSDAbatch::partVar_plot(prop.df = prop.df)
 ## other methods
 
 ```{r}
-d <- dataPreparation::visualize_batch_correction(corrected_list = corrected.list,
-                                            visualization_type = "barplot")
+d <-
+  dataPreparation::visualize_batch_correction(
+    corrected_list = corrected.list,
+    categories = categories,
+    visualization_type = "barplot"
+  )
 d
 ```
 
