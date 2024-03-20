@@ -6,7 +6,7 @@
 \alias{dataPreparation-package}
 \title{dataPreparation: Data Processing for Metabolomics Analysis}
 \description{
-Data Processing for Metabolomics Analysis
+Data Processing for Metabolomics Analysis. This package conatains two phases of data processing. The first evaluate that dataset, while the second one adjust the abnormality in the dataset.
 }
 \author{
 \strong{Maintainer}: Dany Mukesha \email{danymukesha@gmail.com} (\href{https://orcid.org/0009-0001-9514-751X}{ORCID})

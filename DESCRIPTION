@@ -6,7 +6,10 @@ Authors@R:
     person("Dany", "Mukesha", , 
         "danymukesha@gmail.com", role = c("aut", "cre"),
         comment = c(ORCID = "0009-0001-9514-751X"))
-Description: Data Processing for Metabolomics Analysis
+Description: Data Processing for Metabolomics Analysis.
+    This package conatains two phases of data processing.
+    The first evaluate that dataset, while the second one
+    adjust the abnormality in the dataset.
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
@@ -29,6 +32,7 @@ Imports:
     performance,
     PLSDAbatch,
     readxl,
+    rlang,
     see,
     stringr,
     sva,

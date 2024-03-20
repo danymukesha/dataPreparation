@@ -2,6 +2,7 @@
 "_PACKAGE"
 
 ## usethis namespace: start
+#' @import rlang
 #' @import ggplot2
 #' @import dplyr
 #' @import impute
