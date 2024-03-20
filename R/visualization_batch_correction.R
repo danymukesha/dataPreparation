@@ -68,7 +68,7 @@ visualize_batch_correction <- function(corrected_list, categories,
 
     r2.boxp$methods <- factor(r2.boxp$methods, levels = unique(r2.boxp$methods))
 
-    p <- ggplot(r2.boxp, aes(x = Effects, y = r2, fill = Effects)) +
+    p <- ggplot(r2.boxp, aes(x = .data$Effects, y = r2, fill = .data$Effects)) +
       geom_boxplot(alpha = 0.80) +
       theme_bw() +
       theme(text = element_text(size = 10.6),
@@ -93,7 +93,7 @@ visualize_batch_correction <- function(corrected_list, categories,
 
     r2.barp$methods <- factor(r2.barp$methods, levels = unique(r2.barp$methods))
 
-    p <- ggplot(r2.barp, aes(x = Effects, y = r2, fill = Effects)) +
+    p <- ggplot(r2.barp, aes(x = .data$Effects, y = r2, fill = .data$Effects)) +
       geom_bar(stat="identity") +
       theme_bw() +
       theme(text = element_text(size = 10.6),
