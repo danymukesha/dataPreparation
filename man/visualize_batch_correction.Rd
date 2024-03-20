@@ -29,7 +29,8 @@ by generating boxplot or barplot.
 \examples{
 #load correct.list from dataPreparation
 corrected_list <- dataPreparation::corrected_list
-categories <- dataPreparation::imputed_data$categories
+n <- nrow(corrected_list$`Before correction`)
+categories <- dataPreparation::imputed_data$categories[1:n,]
 
 # Visualize batch correction effects using boxplot
 visualize_batch_correction(corrected_list, categories,

@@ -46,3 +46,21 @@
 "imputed_data"
 
 
+#' Batch cerration list for Package Examples
+#'
+#' This list contains two datasets used for demonstrating examples
+#'  in the package.
+#'
+#' @name corrected_list
+#' @format A list with 2 datasets:
+#'   \describe{
+#'     \item{Before correction}{A dataset containing raw data before
+#'     batch correction}
+#'     \item{removeBatchEffect}{A dataset after correcting raw data using
+#'     removeBatchEffect function from `limma` R package.}
+#'     }
+#'
+#'
+"corrected_list"
+
+
