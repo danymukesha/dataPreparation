@@ -4,8 +4,6 @@
 # dataPreparation
 
 <!-- badges: start -->
-
-[![R-CMD-check](https://github.com/danymukesha/dataPreparation/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/danymukesha/dataPreparation/actions/workflows/R-CMD-check.yaml)
 <!-- badges: end -->
 
 ## Data Processing Phase 1 Report

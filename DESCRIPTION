@@ -41,5 +41,5 @@ Imports:
     usethis,
     vegan
 Remotes: github::EvaYiwenWang/PLSDAbatch
-URL: https://github.com/danymukesha/dataPreparation
+URL: https://github.com/danymukesha/dataPreparation, https://danymukesha.github.io/dataPreparation/
 BugReports: https://github.com/danymukesha/dataPreparation/issues
