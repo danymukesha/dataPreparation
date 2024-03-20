@@ -20,7 +20,6 @@ knitr::opts_chunk$set(
 
 <!-- badges: start -->
 
-[![R-CMD-check](https://github.com/danymukesha/dataPreparation/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/danymukesha/dataPreparation/actions/workflows/R-CMD-check.yaml)
 <!-- badges: end -->
 
 ## Data Processing Phase 1 Report
@@ -33,7 +32,7 @@ analysis (PCA).
 
 e.g.:
 
-![Figure 1: pca_plot](man/figures/pca_plot.png){width=50%}
+![Figure 1: pca_plot](man/figures/pca_plot.png){width=60%}
 
 ## Data Processing Phase 2 Report
 
@@ -46,10 +45,10 @@ sPLSDA-batch, and percentile normalization.
 
 e.g.:
 
-![Figure 2: batch_effect](man/figures/batch_correction2.png){width=70%}
+![Figure 2: batch_effect](man/figures/batch_correction2.png){width=80%}
 
 <br>
 
-![Figure 3: batch_correction](man/figures/batch_correction1.png){width=70%}
+![Figure 3: batch_correction](man/figures/batch_correction1.png){width=80%}
 
 

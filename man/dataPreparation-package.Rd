@@ -8,6 +8,14 @@
 \description{
 Data Processing for Metabolomics Analysis. This package conatains two phases of data processing. The first evaluate that dataset, while the second one adjust the abnormality in the dataset.
 }
+\seealso{
+Useful links:
+\itemize{
+  \item \url{https://github.com/danymukesha/dataPreparation}
+  \item Report bugs at \url{https://github.com/danymukesha/dataPreparation/issues}
+}
+
+}
 \author{
 \strong{Maintainer}: Dany Mukesha \email{danymukesha@gmail.com} (\href{https://orcid.org/0009-0001-9514-751X}{ORCID})
 
