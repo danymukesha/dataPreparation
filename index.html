@@ -56,7 +56,14 @@
         <input type="search" class="form-control me-sm-2" aria-label="Toggle navigation" name="search-input" data-search-index="search.json" id="search-input" placeholder="Search for" autocomplete="off">
 </form>
 
-      <ul class="navbar-nav"></ul>
+      <ul class="navbar-nav">
+<li class="nav-item">
+  <a class="external-link nav-link" href="https://github.com/danymukesha/dataPreparation/" aria-label="github">
+    <span class="fab fa fab fa-github fa-lg"></span>
+     
+  </a>
+</li>
+      </ul>
 </div>
 
     
@@ -67,13 +74,13 @@
 <div class="page-header"><h1 id="datapreparation">dataPreparation<a class="anchor" aria-label="anchor" href="#datapreparation"></a>
 </h1></div>
 <!-- badges: start -->
-<!-- badges: end -->
+
 <div class="section level2">
 <h2 id="data-processing-phase-1-report">Data Processing Phase 1 Report<a class="anchor" aria-label="anchor" href="#data-processing-phase-1-report"></a>
 </h2>
 <p>This report outlines the data processing steps involved in phase 1. It covers various preprocessing tasks such as reformatting material names, adding missing phenotype data, selecting metadata, deduplication, imputation of missing values, and performing principal component analysis (PCA).</p>
 <p>e.g.:</p>
-<figure><img src="reference/figures/pca_plot.png" style="width:50.0%" alt="Figure 1: pca_plot"><figcaption aria-hidden="true">
+<figure><img src="reference/figures/pca_plot.png" style="width:60.0%" alt="Figure 1: pca_plot"><figcaption aria-hidden="true">
 Figure 1: pca_plot
 </figcaption></figure>
 </div>
@@ -82,10 +89,10 @@ Figure 1: pca_plot
 </h2>
 <p>This report focuses on the data processing steps involved in phase 2. It encompasses filtering the data, transforming it using Compositional Log-Ratio (CLR) transformation, assessing batch effects, and applying batch correction methods such as removeBatchEffect, ComBat, PLSDA-batch, sPLSDA-batch, and percentile normalization.</p>
 <p>e.g.:</p>
-<figure><img src="reference/figures/batch_correction2.png" style="width:70.0%" alt="Figure 2: batch_effect"><figcaption aria-hidden="true">
+<figure><img src="reference/figures/batch_correction2.png" style="width:80.0%" alt="Figure 2: batch_effect"><figcaption aria-hidden="true">
 Figure 2: batch_effect
 </figcaption></figure><p><br></p>
-<figure><img src="reference/figures/batch_correction1.png" style="width:70.0%" alt="Figure 3: batch_correction"><figcaption aria-hidden="true">
+<figure><img src="reference/figures/batch_correction1.png" style="width:80.0%" alt="Figure 3: batch_correction"><figcaption aria-hidden="true">
 Figure 3: batch_correction
 </figcaption></figure>
 </div>
@@ -94,6 +101,8 @@ Figure 3: batch_correction
 <h2 data-toc-skip>Links</h2>
 <ul class="list-unstyled">
 <li><a href="https://cloud.r-project.org/package=dataPreparation" class="external-link">View on CRAN</a></li>
+<li><a href="https://github.com/danymukesha/dataPreparation/" class="external-link">Browse source code</a></li>
+<li><a href="https://github.com/danymukesha/dataPreparation/issues" class="external-link">Report a bug</a></li>
 </ul>
 </div>
 
@@ -121,7 +130,12 @@ Figure 3: batch_correction
 </ul>
 </div>
 
-
+<div class="dev-status">
+<h2 data-toc-skip>Dev status</h2>
+<ul class="list-unstyled">
+<li><a href="https://github.com/danymukesha/dataPreparation/actions/workflows/R-CMD-check.yaml" class="external-link"><img src="https://github.com/danymukesha/dataPreparation/actions/workflows/R-CMD-check.yaml/badge.svg" alt="R-CMD-check"></a></li>
+</ul>
+</div>
 
   </aside>
 </div>
