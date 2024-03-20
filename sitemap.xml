@@ -4,12 +4,6 @@
     <loc>https://danymukesha.github.io/dataPreparation/404.html</loc>
   </url>
   <url>
-    <loc>https://danymukesha.github.io/dataPreparation/LICENSE-text.html</loc>
-  </url>
-  <url>
-    <loc>https://danymukesha.github.io/dataPreparation/LICENSE.html</loc>
-  </url>
-  <url>
     <loc>https://danymukesha.github.io/dataPreparation/articles/dataProcessing_phase_1.html</loc>
   </url>
   <url>
@@ -25,6 +19,12 @@
     <loc>https://danymukesha.github.io/dataPreparation/index.html</loc>
   </url>
   <url>
+    <loc>https://danymukesha.github.io/dataPreparation/LICENSE-text.html</loc>
+  </url>
+  <url>
+    <loc>https://danymukesha.github.io/dataPreparation/LICENSE.html</loc>
+  </url>
+  <url>
     <loc>https://danymukesha.github.io/dataPreparation/reference/add_missing_phenotypes.html</loc>
   </url>
   <url>
@@ -37,10 +37,10 @@
     <loc>https://danymukesha.github.io/dataPreparation/reference/fncols.html</loc>
   </url>
   <url>
-    <loc>https://danymukesha.github.io/dataPreparation/reference/impute_missing_values.html</loc>
+    <loc>https://danymukesha.github.io/dataPreparation/reference/imputed_data.html</loc>
   </url>
   <url>
-    <loc>https://danymukesha.github.io/dataPreparation/reference/imputed_data.html</loc>
+    <loc>https://danymukesha.github.io/dataPreparation/reference/impute_missing_values.html</loc>
   </url>
   <url>
     <loc>https://danymukesha.github.io/dataPreparation/reference/index.html</loc>

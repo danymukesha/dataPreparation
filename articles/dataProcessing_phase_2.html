@@ -217,15 +217,15 @@ analysis.</p>
 <span><span class="va">ad.batch.tune</span><span class="op">$</span><span class="va">explained_variance.bat</span> <span class="co">#4</span></span>
 <span><span class="co">#&gt; $X</span></span>
 <span><span class="co">#&gt;      comp1      comp2      comp3      comp4      comp5      comp6      comp7 </span></span>
-<span><span class="co">#&gt; 0.14292479 0.10174322 0.04409038 0.05767321 0.02997094 0.02762196 0.03997361 </span></span>
+<span><span class="co">#&gt; 0.14292479 0.10174322 0.03427346 0.06747000 0.03815020 0.04497184 0.02583589 </span></span>
 <span><span class="co">#&gt;      comp8      comp9     comp10 </span></span>
-<span><span class="co">#&gt; 0.02766686 0.02577025 0.02801675 </span></span>
+<span><span class="co">#&gt; 0.01847801 0.02436724 0.02655150 </span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $Y</span></span>
 <span><span class="co">#&gt;        comp1        comp2        comp3        comp4        comp5        comp6 </span></span>
-<span><span class="co">#&gt; 5.341427e-01 4.658573e-01 4.462800e-01 5.536993e-01 2.076144e-05 4.644380e-01 </span></span>
+<span><span class="co">#&gt; 5.341427e-01 4.658573e-01 5.071576e-01 4.926108e-01 2.315492e-04 4.526386e-01 </span></span>
 <span><span class="co">#&gt;        comp7        comp8        comp9       comp10 </span></span>
-<span><span class="co">#&gt; 5.355420e-01 1.998677e-05 4.536131e-01 5.463146e-01</span></span>
+<span><span class="co">#&gt; 5.473345e-01 2.691126e-05 5.364903e-01 4.634230e-01</span></span>
 <span><span class="va">PLSDA_batch.res</span> <span class="op">&lt;-</span> <span class="fu">PLSDAbatch</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/PLSDAbatch/man/PLSDA_batch.html" class="external-link">PLSDA_batch</a></span><span class="op">(</span>X <span class="op">=</span> <span class="va">clr</span>, </span>
 <span>                                  Y.trt <span class="op">=</span> <span class="va">descr</span>, Y.bat <span class="op">=</span> <span class="va">batch</span>,</span>
 <span>                                  ncomp.trt <span class="op">=</span> <span class="fl">1</span>, ncomp.bat <span class="op">=</span> <span class="fl">4</span><span class="op">)</span></span>
@@ -249,17 +249,17 @@ analysis.</p>
 <span><span class="va">batch.tune</span><span class="op">$</span><span class="va">explained_variance.bat</span> <span class="co">#4</span></span>
 <span><span class="co">#&gt; $X</span></span>
 <span><span class="co">#&gt;      comp1      comp2      comp3      comp4      comp5      comp6      comp7 </span></span>
-<span><span class="co">#&gt; 0.14466418 0.19348074 0.05670496 0.03329908 0.03716490 0.03458569 0.02454813 </span></span>
+<span><span class="co">#&gt; 0.14466418 0.19348074 0.04564147 0.04479356 0.03973901 0.03189720 0.02852764 </span></span>
 <span><span class="co">#&gt;      comp8      comp9     comp10 </span></span>
-<span><span class="co">#&gt; 0.01747550 0.02298291 0.01318991 </span></span>
+<span><span class="co">#&gt; 0.01831160 0.01896804 0.01809190 </span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; $Y</span></span>
 <span><span class="co">#&gt;        comp1        comp2        comp3        comp4        comp5        comp6 </span></span>
-<span><span class="co">#&gt; 0.5479060947 0.4520939053 0.5085545886 0.4910996485 0.0003457629 0.4905157565 </span></span>
+<span><span class="co">#&gt; 0.5479060947 0.4520939053 0.4378574162 0.5601067216 0.0020358622 0.4492919487 </span></span>
 <span><span class="co">#&gt;        comp7        comp8        comp9       comp10 </span></span>
-<span><span class="co">#&gt; 0.5091556079 0.0003286357 0.4912325040 0.5084341007</span></span>
+<span><span class="co">#&gt; 0.5503150076 0.0003930436 0.4854369810 0.2951775425</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">batch.tune</span><span class="op">$</span><span class="va">explained_variance.bat</span><span class="op">$</span><span class="va">Y</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_len</a></span><span class="op">(</span><span class="fl">4</span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] 1.999654</span></span>
+<span><span class="co">#&gt; [1] 1.997964</span></span>
 <span><span class="va">sPLSDA_batch.res</span> <span class="op">&lt;-</span> <span class="fu">PLSDAbatch</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/pkg/PLSDAbatch/man/PLSDA_batch.html" class="external-link">PLSDA_batch</a></span><span class="op">(</span>X <span class="op">=</span> <span class="va">clr</span>, </span>
 <span>                                   Y.trt <span class="op">=</span> <span class="va">descr</span>, Y.bat <span class="op">=</span> <span class="va">batch</span>,</span>
 <span>                                   ncomp.trt <span class="op">=</span> <span class="fl">1</span>, keepX.trt <span class="op">=</span> <span class="fl">100</span>,</span>
@@ -443,7 +443,7 @@ understanding of biological phenomena.</p>
 
     <footer><div class="pkgdown-footer-left">
   <p></p>
-<p>Developed by <a href="https://danymukesha.github.io/" class="external-link">Dany Mukesha</a>.</p>
+<p>Developed by Dany Mukesha.</p>
 </div>
 
 <div class="pkgdown-footer-right">

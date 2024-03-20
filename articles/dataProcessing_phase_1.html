@@ -158,7 +158,22 @@ additional information from external sources.</p>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/as.data.frame.html" class="external-link">as.data.frame</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">colnames</a></span><span class="op">(</span><span class="va">all_samples_info</span><span class="op">)</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/grep.html" class="external-link">gsub</a></span><span class="op">(</span>pattern <span class="op">=</span> <span class="st">" "</span>, </span>
 <span>                                   replacement <span class="op">=</span> <span class="st">"."</span>, </span>
-<span>                                   x <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">colnames</a></span><span class="op">(</span><span class="va">all_samples_info</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+<span>                                   x <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/colnames.html" class="external-link">colnames</a></span><span class="op">(</span><span class="va">all_samples_info</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/utils/head.html" class="external-link">head</a></span><span class="op">(</span><span class="va">all_samples_info</span><span class="op">)</span></span>
+<span><span class="co">#&gt;   Patient.reference Phenotype Gender Age Plasma-LH    Serum   Plasma-LH</span></span>
+<span><span class="co">#&gt; 1    ADIA03FR120087      miAD   Male  74  F1916088 F1916087 F1916088001</span></span>
+<span><span class="co">#&gt; 2    ADIA03CH090047      miAD   Male  83           F1915909            </span></span>
+<span><span class="co">#&gt; 3    ADIA03CH090046      miAD   Male  81  F1915905 F1915904 F1915905001</span></span>
+<span><span class="co">#&gt; 4    ADIA03CH090045      msAD Female  78  F1915900 F1915899 F1915900001</span></span>
+<span><span class="co">#&gt; 5    ADIA03CH090044      miAD   Male  76           F1915894            </span></span>
+<span><span class="co">#&gt; 6    ADIA03CH090043      miAD Female  67           F1915889            </span></span>
+<span><span class="co">#&gt;         Serum Serum       Serum</span></span>
+<span><span class="co">#&gt; 1 F1916087001       F1916087012</span></span>
+<span><span class="co">#&gt; 2                   F1915909012</span></span>
+<span><span class="co">#&gt; 3 F1915904001       F1915904012</span></span>
+<span><span class="co">#&gt; 4 F1915899001       F1915899010</span></span>
+<span><span class="co">#&gt; 5                   F1915894011</span></span>
+<span><span class="co">#&gt; 6                   F1915889012</span></span></code></pre></div>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Add missing phenotype information</span></span>
 <span><span class="va">data</span> <span class="op">&lt;-</span> <span class="fu">dataPreparation</span><span class="fu">::</span><span class="fu"><a href="../reference/add_missing_phenotypes.html">add_missing_phenotypes</a></span><span class="op">(</span><span class="va">data</span>, <span class="va">all_samples_info</span><span class="op">)</span></span></code></pre></div>
@@ -401,7 +416,7 @@ impute missing values with k-nearest neighbors (knn).</p>
 <div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/utils/write.table.html" class="external-link">write.csv</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">combined_data</span>, file <span class="op">=</span> <span class="st">"../inst/data_to_use/imputed_data_allbatches.csv"</span>, row.names <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
 <span><span class="fu">usethis</span><span class="fu">::</span><span class="fu"><a href="https://usethis.r-lib.org/reference/use_data.html" class="external-link">use_data</a></span><span class="op">(</span><span class="va">imputed_data</span>, overwrite <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
-<span><span class="co">#&gt; <span style="color: #00BB00;">✔</span> Setting active project to <span style="color: #0000BB;">'/home/runner/work/dataPreparation/dataPreparation'</span></span></span>
+<span><span class="co">#&gt; <span style="color: #00BB00;">✔</span> Setting active project to <span style="color: #0000BB;">'C:/08_pkgs/dataPreparation'</span></span></span>
 <span><span class="co">#&gt; <span style="color: #00BB00;">✔</span> Saving <span style="color: #0000BB;">'imputed_data'</span> to <span style="color: #0000BB;">'data/imputed_data.rda'</span></span></span>
 <span><span class="co">#&gt; <span style="color: #BB0000;">•</span> Document your data (see <span style="color: #0000BB;">'https://r-pkgs.org/data.html'</span>)</span></span></code></pre></div>
 </div>
@@ -462,7 +477,7 @@ visualization.</p>
 
     <footer><div class="pkgdown-footer-left">
   <p></p>
-<p>Developed by <a href="https://danymukesha.github.io/" class="external-link">Dany Mukesha</a>.</p>
+<p>Developed by Dany Mukesha.</p>
 </div>
 
 <div class="pkgdown-footer-right">
