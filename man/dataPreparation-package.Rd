@@ -12,6 +12,7 @@ Data Processing for Metabolomics Analysis. This package conatains two phases of 
 Useful links:
 \itemize{
   \item \url{https://github.com/danymukesha/dataPreparation}
+  \item \url{https://danymukesha.github.io/dataPreparation/}
   \item Report bugs at \url{https://github.com/danymukesha/dataPreparation/issues}
 }
 
