@@ -40,13 +40,14 @@ remove_high_missingness <- function(data, col_threshold = 10, row_threshold = 10
   }
 
   # Remove identified columns and rows
-  cleaned_data <- data[, !names(data) %in% columns_to_remove]
+  cleaned_data <- data[, !(names(data) %in% columns_to_remove)]
   cleaned_data <- cleaned_data[-rows_to_remove, ]
 
   # Remove columns with zero or near-zero variance
   zero_var_cols <- which(apply(cleaned_data, 2, var) == 0)
   # Extract column names corresponding to the numeric values in zero_var_cols
   columns_to_remove <- names(cleaned_data) %in% names(zero_var_cols)
+
   # Subset cleaned_data to remove the columns
   cleaned_data <- cleaned_data[, !columns_to_remove]
 

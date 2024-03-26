@@ -45,7 +45,7 @@ This data will be used for subsequent preprocessing steps.
 
 ```{r data_loading}
 # Read the Excel file containing normalized data
-data <- read.table("../inst/extdata/allbatches_uM_clean.txt", 
+data <- read.table("../inst/extdata/allbatches_uM_clean_second_experiment.txt", 
                    sep = "\t", header = TRUE)
 ```
 
@@ -312,8 +312,10 @@ that helps visualize the variation in the dataset. Here, I perform PCA on
 the preprocessed data and create a PCA plot for visualization.
 
 ```{r}
+# remove zero variance columns from the data set
+t <- imputed_data$data[ , which(apply(imputed_data$data, 2, var) != 0)]
 # Perform PCA
-pca_result <- prcomp(imputed_data$data, scale. = TRUE, center = TRUE)
+pca_result <- prcomp(t, scale. = TRUE, center = TRUE)
 
 # Extract PCA scores
 pca_scores <- as.data.frame(pca_result$x)

@@ -367,6 +367,65 @@ png("../man/figures/splsda_upsetR.png")
 print(p)
 dev.off()
 ```
+# Performing Principal Component Analysis (PCA After Batch Effect Correction) 
+
+Principal Component Analysis (PCA) is a dimensionality reduction technique
+that helps visualize the variation in the dataset. Here, I perform PCA on
+the preprocessed data and create a PCA plot for visualization.
+
+```{r}
+t <- rBE
+# Perform PCA
+pca_result <- prcomp(t, scale. = TRUE, center = TRUE)
+
+# Extract PCA scores
+pca_scores <- as.data.frame(pca_result$x)
+
+# Combine PCA scores with categories for visualization
+pca_data <- cbind(pca_scores, imputed_data$categories)
+
+# Create PCA plot
+pca_plot <- ggplot2::ggplot(pca_data, 
+                            ggplot2::aes(x = PC1, y = PC2, 
+                                         color = Submission.Name, 
+                                         shape = Sample.Description)) +
+    ggplot2::geom_point(size = 2) +
+    ggplot2::scale_shape_manual(values = c(16, 17, 18, 19)) +
+    ggplot2::theme_bw() +
+    ggplot2::labs(
+      title = "PCA Plot (After Batch Effect Correction)",
+      x = paste0(
+        "PC1 (Explained Variance: ",
+        round(pca_result$sdev[1] ^ 2 / sum(pca_result$sdev ^ 2) * 100, 2),
+        "%)"
+      ),
+      y = paste0(
+        "PC2 (Explained Variance: ",
+        round(pca_result$sdev[2] ^ 2 / sum(pca_result$sdev ^ 2) * 100, 2),
+        "%)"
+      )
+    )
+
+# Display PCA plot
+pca_plot
+```
+
+
+```{r}
+imputed_data$rBE <- rBE
+write.csv(x = imputed_data$rBE, 
+          file = "../inst/data_to_use/imputed_data_after_Batch_Correction.csv", 
+          row.names = FALSE)
+usethis::use_data(imputed_data, overwrite = TRUE)
+```
+
+
+```{r}
+png("../man/figures/pca_plot_after_Batch_Correction.png", 
+    width=1600, height=1200, res=220)
+print(pca_plot)
+dev.off() 
+```
 
 
 # Conclusion
@@ -382,4 +441,8 @@ This marks the end of the Data Processing Phase 2 Report.
 
 # Clean up environment
 
+```{r}
 rm(list = ls())
+```
+
+
