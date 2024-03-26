@@ -106,7 +106,7 @@ normalized data. This data will be used for subsequent preprocessing
 steps.</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Read the Excel file containing normalized data</span></span>
-<span><span class="va">data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/utils/read.table.html" class="external-link">read.table</a></span><span class="op">(</span><span class="st">"../inst/extdata/allbatches_uM_clean.txt"</span>, </span>
+<span><span class="va">data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/utils/read.table.html" class="external-link">read.table</a></span><span class="op">(</span><span class="st">"../inst/extdata/allbatches_uM_clean_second_experiment.txt"</span>, </span>
 <span>                   sep <span class="op">=</span> <span class="st">"\t"</span>, header <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span></code></pre></div>
 </div>
 </div>
@@ -228,12 +228,12 @@ analysis.</p>
 <span><span class="co">#&gt; <span style="color: #949494;"># A tibble: 6 × 416</span></span></span>
 <span><span class="co">#&gt;   Sample.Type Sample.Identification Gender   Age Sample.Description</span></span>
 <span><span class="co">#&gt;   <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>       <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>                 <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>  <span style="color: #949494; font-style: italic;">&lt;int&gt;</span> <span style="color: #949494; font-style: italic;">&lt;chr&gt;</span>             </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> Sample      F1800067              Female    93 DLB               </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> Sample      F1701006              Male      68 DLB               </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span> Sample      F1915899              Female    78 msAD              </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">4</span> Sample      F1912538              Male      63 msAD              </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">5</span> Sample      F1815069              Male      83 miAD              </span></span>
-<span><span class="co">#&gt; <span style="color: #BCBCBC;">6</span> Sample      F1705317              Female    78 miAD              </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">1</span> Sample      F1815069              Male      83 miAD              </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">2</span> Sample      F1705317              Female    78 miAD              </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">3</span> Sample      F1702273              Female    67 DLB               </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">4</span> Sample      F1800377              Male      80 HC                </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">5</span> Sample      F1800082              Male      55 msAD              </span></span>
+<span><span class="co">#&gt; <span style="color: #BCBCBC;">6</span> Sample      F1823473              Female    85 HC                </span></span>
 <span><span class="co">#&gt; <span style="color: #949494;"># ℹ 411 more variables: Submission.Name &lt;chr&gt;, Material &lt;chr&gt;, AC.0.0. &lt;dbl&gt;,</span></span></span>
 <span><span class="co">#&gt; <span style="color: #949494;">#   AC.2.0. &lt;dbl&gt;, AC.3.0. &lt;dbl&gt;, AC.3.0.DC. &lt;dbl&gt;, AC.3.0.OH. &lt;dbl&gt;,</span></span></span>
 <span><span class="co">#&gt; <span style="color: #949494;">#   AC.3.1. &lt;dbl&gt;, AC.4.0. &lt;dbl&gt;, AC.4.0.DC. &lt;dbl&gt;, AC.4.0.OH. &lt;dbl&gt;,</span></span></span>
@@ -355,29 +355,29 @@ missingness and imputing missing values using the k-nearest neighbors
 <span><span class="co"># Remove rows with high missingness and impute missing values with k-nearest neighbors (knn)</span></span>
 <span><span class="va">elaborated_data</span> <span class="op">&lt;-</span> <span class="fu">dataPreparation</span><span class="fu">::</span><span class="fu"><a href="../reference/remove_high_missingness.html">remove_high_missingness</a></span><span class="op">(</span><span class="va">data</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Columns removed due to more than 10 % missing values:</span></span>
-<span><span class="co">#&gt; AC.4.0. : 14.59459 % missing</span></span>
-<span><span class="co">#&gt; AC.4.0.DC. : 12.97297 % missing</span></span>
-<span><span class="co">#&gt; AC.4.1. : 14.59459 % missing</span></span>
-<span><span class="co">#&gt; AC.4.1.DC. : 12.97297 % missing</span></span>
-<span><span class="co">#&gt; AC.5.0.DC. : 12.97297 % missing</span></span>
-<span><span class="co">#&gt; AC.5.0.OH. : 12.97297 % missing</span></span>
-<span><span class="co">#&gt; AC.5.1.DC. : 12.97297 % missing</span></span>
-<span><span class="co">#&gt; AC.6.0. : 12.97297 % missing</span></span>
-<span><span class="co">#&gt; AC.6.0.DC. : 12.97297 % missing</span></span>
-<span><span class="co">#&gt; AC.6.1. : 12.97297 % missing</span></span>
-<span><span class="co">#&gt; AC.7.0. : 12.97297 % missing</span></span>
-<span><span class="co">#&gt; Ile : 25.40541 % missing</span></span>
-<span><span class="co">#&gt; xLeu : 41.08108 % missing</span></span>
-<span><span class="co">#&gt; PEA : 25.94595 % missing</span></span>
+<span><span class="co">#&gt; AC.4.0.DC. : 16.43836 % missing</span></span>
+<span><span class="co">#&gt; AC.4.1.DC. : 16.43836 % missing</span></span>
+<span><span class="co">#&gt; AC.5.0.DC. : 16.43836 % missing</span></span>
+<span><span class="co">#&gt; AC.5.0.OH. : 16.43836 % missing</span></span>
+<span><span class="co">#&gt; AC.5.1.DC. : 16.43836 % missing</span></span>
+<span><span class="co">#&gt; AC.6.0. : 16.43836 % missing</span></span>
+<span><span class="co">#&gt; AC.6.0.DC. : 16.43836 % missing</span></span>
+<span><span class="co">#&gt; AC.6.1. : 16.43836 % missing</span></span>
+<span><span class="co">#&gt; AC.7.0. : 16.43836 % missing</span></span>
+<span><span class="co">#&gt; Ile : 32.19178 % missing</span></span>
+<span><span class="co">#&gt; PEA : 32.87671 % missing</span></span>
+<span><span class="co">#&gt; Putrescine : 10.27397 % missing</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Rows removed due to more than 10 % missing values:</span></span>
-<span><span class="co">#&gt; Row 153 : 79.4621 % missing</span></span>
+<span><span class="co">#&gt; Row 128 : 79.2176 % missing</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Columns removed due to having  0  variance:</span></span>
 <span><span class="co">#&gt; Carnosine  </span></span>
 <span><span class="co">#&gt; LPC.9.0.  </span></span>
 <span><span class="co">#&gt; PC.30.2.  </span></span>
+<span><span class="co">#&gt; PC.34.0.  </span></span>
 <span><span class="co">#&gt; PC.O.31.1.  </span></span>
+<span><span class="co">#&gt; PC.O.33.1.  </span></span>
 <span><span class="co">#&gt; PC.O.33.4.  </span></span>
 <span><span class="co">#&gt; PC.O.38.1.  </span></span>
 <span><span class="co">#&gt; PC.O.44.3.</span></span>
@@ -428,8 +428,10 @@ technique that helps visualize the variation in the dataset. Here, I
 perform PCA on the preprocessed data and create a PCA plot for
 visualization.</p>
 <div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="co"># Perform PCA</span></span>
-<span><span class="va">pca_result</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/prcomp.html" class="external-link">prcomp</a></span><span class="op">(</span><span class="va">imputed_data</span><span class="op">$</span><span class="va">data</span>, scale. <span class="op">=</span> <span class="cn">TRUE</span>, center <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="co"># remove zero variance columns from the data set</span></span>
+<span><span class="va">t</span> <span class="op">&lt;-</span> <span class="va">imputed_data</span><span class="op">$</span><span class="va">data</span><span class="op">[</span> , <span class="fu"><a href="https://rdrr.io/r/base/which.html" class="external-link">which</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/apply.html" class="external-link">apply</a></span><span class="op">(</span><span class="va">imputed_data</span><span class="op">$</span><span class="va">data</span>, <span class="fl">2</span>, <span class="va">var</span><span class="op">)</span> <span class="op">!=</span> <span class="fl">0</span><span class="op">)</span><span class="op">]</span></span>
+<span><span class="co"># Perform PCA</span></span>
+<span><span class="va">pca_result</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/prcomp.html" class="external-link">prcomp</a></span><span class="op">(</span><span class="va">t</span>, scale. <span class="op">=</span> <span class="cn">TRUE</span>, center <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Extract PCA scores</span></span>
 <span><span class="va">pca_scores</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/as.data.frame.html" class="external-link">as.data.frame</a></span><span class="op">(</span><span class="va">pca_result</span><span class="op">$</span><span class="va">x</span><span class="op">)</span></span>
