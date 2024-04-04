@@ -442,7 +442,7 @@ This marks the end of the Data Processing Phase 2 Report.
 # Clean up environment
 
 ```{r}
-rm(list = ls())
+# rm(list = ls())
 ```
 
 

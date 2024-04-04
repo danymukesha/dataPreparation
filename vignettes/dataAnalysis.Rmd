@@ -1,0 +1,1751 @@
+---
+title: "Metaboloimcs data analysis"
+output: 
+  rmarkdown::html_vignette:
+    toc: true
+    toc_depth: 2
+    number_sections: true
+vignette: >
+  %\VignetteIndexEntry{Data Processing Phase 1 Report}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+
+```{r setup, include=FALSE}
+library(knitr)
+knitr::opts_chunk$set(warning = FALSE, messAge = FALSE)
+######load the function
+source("T:/SHARED/FIRALIS/STAT/Script for statistician/Supervised_analysis_package/R/Statistical test.R")
+source("T:/SHARED/FIRALIS/STAT/Script for statistician/AUC by variable.R")
+source("T:/SHARED/FIRALIS/STAT/Script for statistician/ranking with CMA.R")
+source("T:/SHARED/FIRALIS/STAT/Script for statistician/predictive_model.R")
+source("T:/SHARED/FIRALIS/STAT/Script for statistician/AUC for logistic regression.R")
+source("T:/SHARED/FIRALIS/STAT/Script for statistician/validation.R")
+source("T:/SHARED/FIRALIS/STAT/Script for statistician/AUC in function of the number of variable.R")
+source("T:/SHARED/FIRALIS/STAT/Script for statistician/descritive statistics.R")
+source("T:/SHARED/FIRALIS/STAT/Script for statistician/Odds ratio.R")
+source("T:/SHARED/FIRALIS/STAT/Script for statistician/accuracy in function of the number of biomarker.R")
+source("T:/SHARED/FIRALIS/STAT/Script for statistician/Volcano_plot.R")
+
+
+
+#######load the packAge
+library(FactoMineR)
+library(questionr)
+library(lars)
+library(PoiClaClu)
+library(plot3D)
+library(ggplot2)
+library(hrbrthemes)
+library(dplyr)
+library(tidyr)
+library(viridis)
+library(extrafont)
+library(MASS)
+library(RColorBrewer)
+library(data.table)
+library(tidyverse)
+library(knitr)
+library(broom)
+library(cowplot)
+library(gridExtra)
+library(ggVennDiagram)
+library(factoextra)
+library(gridExtra)
+library(grid)
+library(ggplot2)
+library(lattice)
+library(DT)
+library(pandoc)
+library(dataPreparation)
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+# Missing data analysis
+
+```{r missing data}
+data0 <- cbind(dataPreparation::imputed_data$categories,
+               dataPreparation::imputed_data$data) |>
+  as.tibble()
+
+data0 <- data0 |>
+  rename(Plate = Submission.Name) |>
+  rename(Cohort = Allgr) |>
+  rename(Allgr = Sample.Description) 
+
+write.csv(data0, file = "../inst/extdata/clean_data/allbatches_serum.csv")
+
+data0 <- fread(input = "../inst/extdata/clean_data/allbatches_serum.csv")
+data02 <- fread("C:/04_analysis/02_metabolomics_serum/output/allbatches_serum.csv")
+
+data0[, Gender := toupper(Gender)]
+data0[Gender %in% c("1", "M"), Gender := "MALE"]
+data0[Gender %in% c("2", "F"), Gender := "FEMALE"]
+data0[, `:=`(Gender = factor(Gender))]
+
+biomarkers <- colnames(data0)[8:dim(data0)[2]]
+data0[, `:=`(Gender = factor(Gender))]
+data0$Allgr=as.factor(data0$Allgr)
+data0$Allgr=relevel(data0$Allgr,ref="DLB")
+data0$Allgr=relevel(data0$Allgr,ref="miAD")
+data0$Allgr=relevel(data0$Allgr,ref="msAD")
+data0$Allgr=relevel(data0$Allgr,ref="HC")
+metadata <- c("Gender", "Allgr", "Cohort", "Age" )
+
+```
+
+```{r, echo=FALSE}
+
+long_dataset <- melt(data0, id.vars = c('sampleID', metadata), variable.name = "ASSAY",
+value.name = "value", measure.vars = biomarkers)
+
+data_count2 <- long_dataset %>%                                  
+  group_by(Cohort) %>%
+  dplyr::summarize(count_na = sum(is.na(value)))
+  
+  ggplot(long_dataset[, .(proportion_missing_value = sum(is.na(value)) / .N), , by = .(sampleID, Cohort)],
+       aes(x = proportion_missing_value, y = Cohort)) + 
+  ggridges::geom_density_ridges(stat = "binline", scale = 0.95) + ggridges::theme_ridges() +
+  ggtitle("Proportion of missing values per sample and group")                              
+```
+
+
+For each subgroup Biomarkers with more than %20 missing values are excluded. 
+
+```{r, echo=FALSE, messAge=FALSE}
+
+proportion<-long_dataset[, .(proportion_missing_value = sum(is.na(value)) / .N), , by = .(Cohort, ASSAY)]
+proportion[,3] <-round(proportion[,-c(1,2)],3)
+DT::datatable(proportion)
+
+b1=as.data.frame(proportion[which((proportion[,1]=="HC") & (proportion[,3]<0.20)),1:3])
+b2=as.data.frame(proportion[which((proportion[,1]=="AD") & (proportion[,3]<0.20)),1:3])
+b3=as.data.frame(proportion[which((proportion[,1]=="DLB") & (proportion[,3]<0.20)),1:3])
+b=rbind(b1,b2,b3)              
+
+b=as.character(b[,2])
+b=unique(b)
+
+data0<-as.data.frame(data0)
+newdata=data0[,c(1:7)]
+c=colnames(data0)
+for( j in 1:length(b)) {
+  newdata=cbind(newdata,data0[,which(c==b[j])])
+}
+colnames(newdata)[-c(1:7)]=b
+data2=as.data.frame(newdata)##data involving only missing percentAge<0.20
+write.csv(data2,"finalmergeddatamissingratesmall20percent.csv",row.names = F)
+
+```
+
+72 variables with more than % 20 missing values were excluded from data analysis.
+
+# Descriptive Statistics
+```{r descrptives}
+data0<-as.data.table(data0)
+unique(data0, by = "sampleID")[, .(patients = .N), .(Cohort, Allgr)][, subgroup_proportion := scales::percent(prop.table(patients)), by = Cohort][order(Cohort, -patients)]
+
+unique(data0, by = "sampleID")[, .(patients = .N), .(Cohort, Gender)][, subgroup_proportion := scales::percent(prop.table(patients)), by = Cohort][order(Cohort, -patients)]
+
+unique(data0, by = "sampleID")[, .(patients = .N), .(Plate, Allgr)][, subgroup_proportion := scales::percent(prop.table(patients)), by = Plate][order(Plate, -patients)]
+
+unique(data0, by = "sampleID")[, .(patients = .N), .(Plate, Cohort)][, subgroup_proportion := scales::percent(prop.table(patients)), by = Plate][order(Plate, -patients)]
+
+ggplot(data = data0, aes(x = Cohort, fill = Gender)) +
+  geom_bar(width = 0.4) +
+  geom_text(stat = "count", aes(label = ..count..), position = position_stack(vjust = 0.5)) + # nolint
+  ggtitle("Gender distrubution across groups") +
+  xlab("Groups") +
+  ylab("Frequency") +
+  theme_bw()
+
+ggplot(data = data2, aes(x = Allgr, fill = Gender)) +
+  geom_bar(width = 0.4) +
+  geom_text(stat = "count", aes(label = ..count..), position = position_stack(vjust = 0.5)) + # nolint
+  ggtitle("Gender distrubution across groups") +
+  xlab("Groups") +
+  ylab("Frequency") +
+  theme_bw()
+boxplot(Age ~ Cohort, data = data2,col = "lightgray", main = "Age distrubution across main groups", ylim = c(40, 120))
+
+boxplot(Age ~ Allgr, data = data2,col = "lightgray", main = "Age distrubution across subgroups", ylim = c(40, 120))
+
+summary <- data2 %>%
+  group_by(Allgr) %>%
+  summarise(
+    n = n(),
+    Age_mean = round(mean(Age, na.rm=TRUE), 1),
+    Age_sd = round(sd(Age, na.rm=TRUE), 1),
+    Age_min = min(Age, na.rm=TRUE),
+    Age_max = max(Age, na.rm=TRUE))
+kable(summary, caption = "Descriptive statistics for Age")
+
+
+```
+
+
+# PCA results
+
+
+## Extremes and outliers
+
+```{r pca1}
+biomarkers <- data2[, 8:ncol(data2)]
+coul=rainbow(3)
+acp=PCA(biomarkers)
+plot(as.numeric(acp$ind$coord[,1]),as.numeric(acp$ind$coord[,2]),col=coul[as.factor(data2$Cohort)],main="Representation of sample by group", xlab=paste("Dim1: ",round(acp$eig[1,2],2),"%",sep=""),ylab=paste("Dim2: ",round(acp$eig[2,2],2),"%",sep=""),pch=16)
+abline(v=0,h=0,lty=3)
+legend("topleft",legend=levels(as.factor(data2$Cohort)),pch=16,col=coul,bty='n')
+coul=rainbow(3)
+plot(as.numeric(acp$ind$coord[,1]),as.numeric(acp$ind$coord[,2]),col=coul[as.factor(data2$Plate)], main="Representation of sample by batch effect", xlab=paste("Dim1: ",round(acp$eig[1,2],2),"%",sep=""),ylab=paste("Dim2: ",round(acp$eig[2,2],2),"%",sep=""),pch=16)
+abline(v=0,h=0,lty=3)
+legend("topleft",legend=levels(as.factor(data2$Plate)),pch=16,col=coul,bty='n')
+coul=rainbow(2)
+plot(as.numeric(acp$ind$coord[,1]),as.numeric(acp$ind$coord[,2]),col=coul[as.factor(data2$Gender)],main="Representation of sample by gender", xlab=paste("Dim1: ",round(acp$eig[1,2],2),"%",sep=""),ylab=paste("Dim2: ",round(acp$eig[2,2],2),"%",sep=""),pch=16)
+abline(v=0,h=0,lty=3)
+legend("topleft",legend=levels(as.factor(data2$Gender)),pch=16,col=coul,bty='n')
+```
+
+
+
+# Multivariave ANOVA to evaluate Batch, Age and Gender effect 
+```{r anova, messAge=FALSE}
+
+data2$Cohort=as.factor(data2$Cohort)
+data2$Gender=as.factor(data2$Gender)
+
+# Remove rows with missing values
+data2 <- na.omit(data2)
+
+test=NULL
+for(i in 8:ncol(data2)) {
+  test = rbind(test, c(colnames(data2)[i], summary(
+    aov(
+      data2[, i] ~ data2$Plate + data2$Gender * data2$Age + data2$Cohort,
+      na.rm = T
+    )
+  )[[1]][["Pr(>F)"]]))
+}
+test=test[,-7]
+colnames(test)=c("Biomarker", "Batch", "Gender", "Age", "Group", "Gender:Age")
+test=as.data.table(test)
+
+test_long = melt(test, id.vars = c("Biomarker"))
+test_long$value=as.numeric(test_long$value)
+test_long$pvalue_adjusted=p.adjust(test_long$value, method="fdr")
+test_wide <- dcast(test_long, Biomarker ~ variable, value.var =  c("value","pvalue_adjusted"))
+```
+
+
+```{r anovagraphs, messAge=FALSE}
+anova_results <- test_wide
+
+group_plot <- ggplot(anova_results, aes(value_Group)) +
+  geom_histogram(fill = "#56B4E9", alpha = 0.8) +
+  geom_vline(xintercept = c(0.05), linetype = "dashed", color = "red") +
+  ggtitle("group p-values distribution") +
+  ylab("Count") +
+  xlab("p-values") +
+  theme_bw()
+
+batch_plot <- ggplot(anova_results, aes(value_Batch)) +
+  geom_histogram(fill = "#56B4E9", alpha = 0.8) +
+  geom_vline(xintercept = c(0.05), linetype = "dashed", color = "red") +
+  ggtitle("batch p-values distribution") +
+  ylab("Count") +
+  xlab("p-values") +
+  theme_bw()
+
+
+Age_plot <- ggplot(anova_results, aes(value_Age)) +
+  geom_histogram(fill = "#56B4E9", alpha = 0.8) +
+  geom_vline(xintercept = c(0.05), linetype = "dashed", color = "red") +
+  ggtitle("Age p-values distribution") +
+  ylab("Count") +
+  xlab("p-values") +
+  theme_bw()
+
+gender_plot <- ggplot(anova_results, aes(value_Gender)) +
+  geom_histogram(fill = "#56B4E9", alpha = 0.8) +
+  geom_vline(xintercept = c(0.05), linetype = "dashed", color = "red") +
+  ggtitle("gender p-values distribution") +
+  ylab("Count") +
+  xlab("p-values") +
+  theme_bw()
+
+Age_gender_plot <- ggplot(anova_results, aes(`value_Gender:Age`)) +
+  geom_histogram(fill = "#56B4E9", alpha = 0.8) +
+  geom_vline(xintercept = c(0.05), linetype = "dashed", color = "red") +
+  ggtitle("Age:gender p-values distribution") +
+  ylab("Count") +
+  xlab("p-values") +
+  theme_bw()
+
+adj_group_plot <- ggplot(anova_results, aes(pvalue_adjusted_Group)) +
+  geom_histogram(fill = "#56B4E9", alpha = 0.8) +
+  geom_vline(xintercept = c(0.05), linetype = "dashed", color = "red")+
+  ggtitle("group q-values distribution") +
+  ylab("Count") +
+  xlab("q-values") +
+  theme_bw()
+
+adj_batch_plot <- ggplot(anova_results, aes(pvalue_adjusted_Batch)) +
+  geom_histogram(fill = "#56B4E9", alpha = 0.8) +
+  geom_vline(xintercept = c(0.05), linetype = "dashed", color = "red")+
+  ggtitle("batch q-values distribution") +
+  ylab("Count") +
+  xlab("q-values") +
+  theme_bw()
+
+adj_Age_plot <- ggplot(anova_results, aes(pvalue_adjusted_Age)) +
+  geom_histogram(fill = "#56B4E9", alpha = 0.8) +
+  geom_vline(xintercept = c(0.05), linetype = "dashed", color = "red")+
+  ggtitle("Age q-values distribution") +
+  ylab("Count") +
+  xlab("q-values") +
+  theme_bw()
+
+adj_gender_plot <- ggplot(anova_results, aes(pvalue_adjusted_Gender)) +
+  geom_histogram(fill = "#56B4E9", alpha = 0.8) +
+  geom_vline(xintercept = c(0.05), linetype = "dashed", color = "red")+
+  ggtitle("gender q-values distribution") +
+  ylab("Count") +
+  xlab("q-values") +
+  theme_bw()
+
+adj_Age_gender_plot <- ggplot(anova_results, aes(`pvalue_adjusted_Gender:Age`)) +
+  geom_histogram(fill = "#56B4E9", alpha = 0.8) +
+  geom_vline(xintercept = c(0.05), linetype = "dashed", color = "red")+
+  ggtitle("Age:gender q-values distribution") +
+  ylab("Count") +
+  xlab("q-values") +
+  theme_bw()
+
+grid.arrange(group_plot, adj_group_plot, batch_plot, adj_batch_plot, nrow = 2, ncol = 2) 
+
+grid.arrange(Age_plot, adj_Age_plot,gender_plot, adj_gender_plot, nrow = 2, ncol = 2)
+
+```
+
+## Multivariate ANOVA results
+```{r anovatables, messAge=FALSE}
+anova_results<-as.data.frame(anova_results)
+anova_results[,-1] <-round(anova_results[,-1],3)
+colnames(anova_results)[2]  <- "p_Plate" 
+colnames(anova_results)[3]  <- "p_Gender" 
+colnames(anova_results)[4] <- "p_Age"
+colnames(anova_results)[5] <- "p_Group"
+colnames(anova_results)[6] <- "p_Gender:Age"
+colnames(anova_results)[7]  <- "q_Plate" 
+colnames(anova_results)[8]  <- "q_Gender" 
+colnames(anova_results)[9] <- "q_Age"
+colnames(anova_results)[10] <- "q_Group"
+colnames(anova_results)[11] <- "q_Gender:Age"
+datatable(anova_results)
+```
+
+
+
+```{r adjusteddata}
+
+data0_1=data2[,1:7]
+for(i in 8:ncol(data2)){
+  model=lm(data2[,i]~data2$Plate+data2$Gender*data2$Age+data2$Cohort)
+  coeff=as.matrix(coef(summary(model),keep.rownames = "coefficient"))
+  pred=predict(model, data2, type="term")
+  data0_1=cbind(data0_1,data2[,i]-(pred[,1]+pred[,2]+pred[,3]+pred[,5]))
+}
+colnames(data0_1)[8:ncol(data0_1)]=colnames(data2)[8:ncol(data0_1)]
+
+write.csv(data0_1,"EffectsAdjustedmetabolimics.csv",row.names=F)
+```
+
+
+
+# Comparison of AD vs DLB
+## Volcano plot for p values
+Student t test the p-values and the q-values FC distributions are displayed below.
+
+```{r, messAge=FALSE}
+library(remotes)
+# # SupervisedAnalysisPackage
+DLB=data0_1[which(data0_1$Cohort=="DLB"),]
+AD=data0_1[which(data0_1$Cohort=="AD"),]
+n=ncol(DLB)
+dat=rbind(DLB, AD)
+test=student_fdr(8,n,AD,DLB,F,2,"AD vs DLB")
+FC<-as.numeric(test[,7])
+Pvalue<-as.numeric(test[,6])
+threshold=1.5
+logFC <- log2(FC)
+wh <- which(Pvalue == 0)
+Pvalue[wh] <- 0.000001
+logpval <- -log10(Pvalue)
+res <- data.frame(cbind(logFC, logpval))
+  
+  with(res, plot(logFC, logpval, pch=20, ylab="p_value (in -log10)", 
+                 xlab="Fold change (in log2)"),cex.axis=3,cex.lab=3)
+  
+  # Add colored points: 
+  with(subset(res, logpval < -log10(0.05) ), points(logFC, logpval, pch=20, col="black"))
+  with(subset(res, logFC > log2(1) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="lightcoral"))
+  with(subset(res, logFC < log2(1) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="lightblue"))
+  with(subset(res, logFC > log2(threshold) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="red"))
+  with(subset(res, logFC < log2(1/threshold) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="blue"))
+  with(subset(res, logpval < -log10(0.05) & abs(logFC) > log2(threshold)), points(logFC, logpval, pch=20, col="gray"))
+  
+  abline(h=-log10(0.05), col="red", lwd=3)
+  abline(v=log2(1/threshold), col="grey", lty=2)
+  abline(v=log2(threshold), col="grey", lty=2)
+  UP <- nrow(subset(res, logFC > log2(threshold) & logpval > -log10(0.05)))
+  DO <- nrow(subset(res, logFC < log2(1/threshold) & logpval > -log10(0.05)))
+  legend("topleft", legend=c(parse(text=sprintf("Upregulated : %s",UP)),parse(text=sprintf("Downregulated : %s",DO))),col=c("red", "blue"), pch=16, cex=0.8)
+  
+```
+
+#### Significant variables
+According to the selection criteria mentioned above, __`r UP`__ variables are 
+significantly up and __`r DO`__ variables are significantly down.
+
+## Volcano plot for q values
+
+
+```{r}
+FC<-as.numeric(test[,7])
+Pvalue<-as.numeric(test[,8])
+threshold=1.5
+logFC <- log2(FC)
+wh <- which(Pvalue == 0)
+Pvalue[wh] <- 0.000001
+logpval <- -log10(Pvalue)
+res <- data.frame(cbind(logFC, logpval))
+  
+  with(res, plot(logFC, logpval, pch=20, ylab="q_value (in -log10)", 
+                 xlab="Fold change (in log2)"),cex.axis=3,cex.lab=3)
+  
+  # Add colored points: 
+  with(subset(res, logpval < -log10(0.05) ), points(logFC, logpval, pch=20, col="black"))
+  with(subset(res, logFC > log2(1) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="lightcoral"))
+  with(subset(res, logFC < log2(1) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="lightblue"))
+  with(subset(res, logFC > log2(threshold) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="red"))
+  with(subset(res, logFC < log2(1/threshold) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="blue"))
+  with(subset(res, logpval < -log10(0.05) & abs(logFC) > log2(threshold)), points(logFC, logpval, pch=20, col="gray"))
+  
+  abline(h=-log10(0.05), col="red", lwd=3)
+  abline(v=log2(1/threshold), col="grey", lty=2)
+  abline(v=log2(threshold), col="grey", lty=2)
+  UP <- nrow(subset(res, logFC > log2(threshold) & logpval > -log10(0.05)))
+  DO <- nrow(subset(res, logFC < log2(1/threshold) & logpval > -log10(0.05)))
+  legend("topleft", legend=c(parse(text=sprintf("Upregulated : %s",UP)),parse(text=sprintf("Downregulated : %s",DO))),col=c("red", "blue"), pch=16, cex=0.8)
+  
+```
+
+
+#### Significant variables
+According to the selection criteria mentioned above, __`r UP`__ variables are 
+significantly up and __`r DO`__ variables are significantly down.
+
+## AUC and Fold changes for each Biomarker
+```{r aucfoldchangetable3}
+DLB=data0_1[which(data0_1$Cohort=="DLB"),]
+AD=data0_1[which(data0_1$Cohort=="AD"),]
+n=ncol(DLB)
+dat=rbind(DLB, AD)
+dataX=as.matrix(dat[,8:n])
+dataY=as.factor(dat$Cohort)
+n=ncol(dataX)
+AUC<-AUC_indiv(dataX,dataY,n,"AD vs DLB")
+AUC<-as.data.frame(AUC)
+AUC$auc<-as.numeric(AUC$auc)
+n<-length(AUC$auc)
+for (i in 1:n)  
+
+if (AUC[i,2]<0.50) 
+  {
+  AUC[i,2]=1-AUC[i,2]
+} 
+
+test<-as.data.frame(test)
+test<- test %>% rename(biomarker=variable, DLB_Mean="mean group2", DLB_SD="sd group2", AD_Mean="mean group1", AD_SD="sd group1", pvalues=pvalue, foldchange=foldchange, qvalues="pvalue adjusted")
+final<-merge(AUC, test, by="biomarker", all=FALSE )
+final<-data.frame(final)
+final$auc=as.numeric(final$auc)
+final$AD_Mean=as.numeric(final$AD_Mean)
+final$AD_SD =as.numeric(final$AD_SD)
+final$DLB_Mean =as.numeric(final$DLB_Mean)
+final$DLB_SD =as.numeric(final$DLB_SD)
+final$pvalues =as.numeric(final$pvalues)
+final$foldchange =as.numeric(final$foldchange)
+final$qvalues =as.numeric(final$qvalues)
+final[,-1] <-round(final[,-1],3)
+datatable(final)
+write.csv(final,"finaltableADvsDLB.csv",row.names=F)
+```
+
+
+## List of significant biomarker after gender and Age effects adjusted
+
+
+```{r}
+b1=as.data.frame(final[which(final$qvalues<0.10),1])## Select significant biomarkers 
+b1=as.character(b1[,1])
+b1
+newdata=data0_1[,c(1:7)]
+c=colnames(data0_1)
+for( j in 1:length(b1)) {
+  newdata=cbind(newdata,data0_1[,which(c==b1[j])])
+}
+colnames(newdata)[-c(1:7)]=b1
+data2=as.data.frame(newdata)##data involving only significant biomarkers based on q values of group 
+
+significantadjbiomarkers <- data2[,-c(1:7)]
+
+```
+
+
+## Correlations of Significant Biomarkers
+
+```{r, fig.dim = c(8, 8)}
+correlations <- cor(as.matrix(significantadjbiomarkers), use = "pairwise.complete.obs")
+corrplot::corrplot(correlations, method = "square", order = "hclust",number.font = 5,
+                   main = "Correlations between significant biomarkers ", tl.cex = 0.5, mar = c(0, 0, 3, 0),
+                   tl.col = 1)
+
+```
+
+
+## Boxplot for significant Biomarkers for Age, gender adjusted data
+```{r, fig.dim = c(8, 8)}
+
+data2<-as.data.frame(data2)##converting significant variables into longdataset
+sigbiomarkersadj <- colnames(data2)[8:length(data2)]
+metadata <- c("Gender", "Allgr", "Cohort", "Age" )
+
+long_datasetsig <- melt(data2, id.vars = c('sampleID' , metadata), variable.name = "ASSAY", 
+                     value.name = "value", measure.vars = sigbiomarkersadj)
+                     
+long_datasetsig <- subset(long_datasetsig, Cohort!="HC")##NAD olanlari cikarmak icin
+  
+ggplot(long_datasetsig,aes(x = Cohort, col = Cohort, y = value)) + 
+  theme_minimal() +
+  geom_boxplot() + facet_wrap(ASSAY~., scales = "free") + scale_color_discrete(guide=F) + ggtitle("Biomarker values with significant group effect") +
+  theme(strip.text = element_text(size=rel(0.6)))
+
+```
+
+
+
+
+# Comparison of DLB vs HC
+## Volcano plot for p values
+Student t test the p-values and the q-values FC distributions are displayed below.
+
+```{r, messAge=FALSE}
+library(remotes)
+# # SupervisedAnalysisPackage
+HC=data0_1[which(data0_1$Cohort=="HC"),]
+DLB=data0_1[which(data0_1$Cohort=="DLB"),]
+n=ncol(HC)
+dat=rbind(HC, DLB)
+test=student_fdr(8,n,DLB,HC,F,2,"DLB vs HC")
+FC<-as.numeric(test[,7])
+Pvalue<-as.numeric(test[,6])
+threshold=1.5
+logFC <- log2(FC)
+wh <- which(Pvalue == 0)
+Pvalue[wh] <- 0.000001
+logpval <- -log10(Pvalue)
+res <- data.frame(cbind(logFC, logpval))
+  
+  with(res, plot(logFC, logpval, pch=20, ylab="p_value (in -log10)", 
+                 xlab="Fold change (in log2)"),cex.axis=3,cex.lab=3)
+  
+  # Add colored points: 
+  with(subset(res, logpval < -log10(0.05) ), points(logFC, logpval, pch=20, col="black"))
+  with(subset(res, logFC > log2(1) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="lightcoral"))
+  with(subset(res, logFC < log2(1) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="lightblue"))
+  with(subset(res, logFC > log2(threshold) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="red"))
+  with(subset(res, logFC < log2(1/threshold) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="blue"))
+  with(subset(res, logpval < -log10(0.05) & abs(logFC) > log2(threshold)), points(logFC, logpval, pch=20, col="gray"))
+  
+  abline(h=-log10(0.05), col="red", lwd=3)
+  abline(v=log2(1/threshold), col="grey", lty=2)
+  abline(v=log2(threshold), col="grey", lty=2)
+  UP <- nrow(subset(res, logFC > log2(threshold) & logpval > -log10(0.05)))
+  DO <- nrow(subset(res, logFC < log2(1/threshold) & logpval > -log10(0.05)))
+  legend("topleft", legend=c(parse(text=sprintf("Upregulated : %s",UP)),parse(text=sprintf("Downregulated : %s",DO))),col=c("red", "blue"), pch=16, cex=0.8)
+  
+```
+
+#### Significant variables
+According to the selection criteria mentioned above, __`r UP`__ variables are 
+significantly up and __`r DO`__ variables are significantly down.
+
+## Volcano plot for q values
+
+
+```{r}
+FC<-as.numeric(test[,7])
+Pvalue<-as.numeric(test[,8])
+threshold=1.5
+logFC <- log2(FC)
+wh <- which(Pvalue == 0)
+Pvalue[wh] <- 0.000001
+logpval <- -log10(Pvalue)
+res <- data.frame(cbind(logFC, logpval))
+  
+  with(res, plot(logFC, logpval, pch=20, ylab="q_value (in -log10)", 
+                 xlab="Fold change (in log2)"),cex.axis=3,cex.lab=3)
+  
+  # Add colored points: 
+  with(subset(res, logpval < -log10(0.05) ), points(logFC, logpval, pch=20, col="black"))
+  with(subset(res, logFC > log2(1) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="lightcoral"))
+  with(subset(res, logFC < log2(1) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="lightblue"))
+  with(subset(res, logFC > log2(threshold) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="red"))
+  with(subset(res, logFC < log2(1/threshold) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="blue"))
+  with(subset(res, logpval < -log10(0.05) & abs(logFC) > log2(threshold)), points(logFC, logpval, pch=20, col="gray"))
+  
+  abline(h=-log10(0.05), col="red", lwd=3)
+  abline(v=log2(1/threshold), col="grey", lty=2)
+  abline(v=log2(threshold), col="grey", lty=2)
+  UP <- nrow(subset(res, logFC > log2(threshold) & logpval > -log10(0.05)))
+  DO <- nrow(subset(res, logFC < log2(1/threshold) & logpval > -log10(0.05)))
+  legend("topleft", legend=c(parse(text=sprintf("Upregulated : %s",UP)),parse(text=sprintf("Downregulated : %s",DO))),col=c("red", "blue"), pch=16, cex=0.8)
+  
+```
+
+
+#### Significant variables
+According to the selection criteria mentioned above, __`r UP`__ variables are 
+significantly up and __`r DO`__ variables are significantly down.
+
+## AUC and Fold changes for each Biomarker
+```{r aucfoldchangetable2}
+HC=data0_1[which(data0_1$Cohort=="HC"),]
+DLB=data0_1[which(data0_1$Cohort=="DLB"),]
+n=ncol(HC)
+dat=rbind(HC, DLB)
+dataX=as.matrix(dat[,8:n])
+dataY=as.factor(dat$Cohort)
+n=ncol(dataX)
+AUC<-AUC_indiv(dataX,dataY,n,"DLB vs HC")
+AUC<-as.data.frame(AUC)
+AUC$auc<-as.numeric(AUC$auc)
+n<-length(AUC$auc)
+for (i in 1:n)  
+
+if (AUC[i,2]<0.50) 
+  {
+  AUC[i,2]=1-AUC[i,2]
+} 
+
+test<-as.data.frame(test)
+test<- test %>% rename(biomarker=variable, HC_Mean="mean group2", HC_SD="sd group2", DLB_Mean="mean group1", DLB_SD="sd group1", pvalues=pvalue, foldchange=foldchange, qvalues="pvalue adjusted")
+final<-merge(AUC, test, by="biomarker", all=FALSE )
+final<-data.frame(final)
+final$auc=as.numeric(final$auc)
+final$DLB_Mean=as.numeric(final$DLB_Mean)
+final$DLB_SD =as.numeric(final$DLB_SD)
+final$HC_Mean =as.numeric(final$HC_Mean)
+final$HC_SD =as.numeric(final$HC_SD)
+final$pvalues =as.numeric(final$pvalues)
+final$foldchange =as.numeric(final$foldchange)
+final$qvalues =as.numeric(final$qvalues)
+final[,-1] <-round(final[,-1],3)
+datatable(final)
+write.csv(final,"finaltableDLBvsHC.csv",row.names=F)
+```
+
+
+## List of significant biomarker after gender and Age effects Adjusted
+
+
+```{r}
+b1=as.data.frame(final[which(final$qvalues<0.10),1])## Select significant biomarkers 
+b1=as.character(b1[,1])
+b1
+newdata=data0_1[,c(1:7)]
+c=colnames(data0_1)
+for( j in 1:length(b1)) {
+  newdata=cbind(newdata,data0_1[,which(c==b1[j])])
+}
+colnames(newdata)[-c(1:7)]=b1
+data2=as.data.frame(newdata)##data involving only significant biomarkers based on q values of group 
+
+significantadjbiomarkers <- data2[,-c(1:7)]
+
+```
+
+
+## Correlations of Significant Biomarkers
+
+```{r, fig.dim = c(8, 8)}
+correlations <- cor(as.matrix(significantadjbiomarkers), use = "pairwise.complete.obs")
+corrplot::corrplot(correlations, method = "square", order = "hclust",number.font = 5,
+                   main = "Correlations between significant biomarkers ", tl.cex = 0.5, mar = c(0, 0, 3, 0),
+                   tl.col = 1)
+
+```
+
+
+## Boxplot for significant Biomarkers for Age, gender adjusted data
+```{r, fig.dim = c(8, 8)}
+
+data2<-as.data.frame(data2)##converting significant variables into longdataset
+sigbiomarkersadj <- colnames(data2)[8:length(data2)]
+metadata <- c("Gender", "Allgr", "Cohort", "Age" )
+
+long_datasetsig <- melt(data2, id.vars = c('sampleID' , metadata), variable.name = "ASSAY", 
+                     value.name = "value", measure.vars = sigbiomarkersadj)
+                     
+long_datasetsig <- subset(long_datasetsig, Cohort!="AD")##NAD olanlari cikarmak icin
+  
+ggplot(long_datasetsig,aes(x = Cohort, col = Cohort, y = value)) + 
+  theme_minimal() +
+  geom_boxplot() + facet_wrap(ASSAY~., scales = "free") + scale_color_discrete(guide=F) + ggtitle("Biomarker values with significant group effect") +
+  theme(strip.text = element_text(size=rel(0.6)))
+
+```
+
+
+
+# Comparison of AD vs HC
+## Volcano plot for p values
+Student t test the p-values and the q-values FC distributions are displayed below.
+
+```{r, messAge=FALSE}
+library(remotes)
+# SupervisedAnalysisPackage
+HC=data0_1[which(data0_1$Cohort=="HC"),]
+AD=data0_1[which(data0_1$Cohort=="AD"),]
+n=ncol(HC)
+dat=rbind(HC, AD)
+test=student_fdr(8,n,AD,HC,F,2,"AD vs HC")
+FC<-as.numeric(test[,7])
+Pvalue<-as.numeric(test[,6])
+threshold=1.5
+logFC <- log2(FC)
+wh <- which(Pvalue == 0)
+Pvalue[wh] <- 0.000001
+logpval <- -log10(Pvalue)
+res <- data.frame(cbind(logFC, logpval))
+  
+  with(res, plot(logFC, logpval, pch=20, ylab="p_value (in -log10)", 
+                 xlab="Fold change (in log2)"),cex.axis=3,cex.lab=3)
+  
+  # Add colored points: 
+  with(subset(res, logpval < -log10(0.05) ), points(logFC, logpval, pch=20, col="black"))
+  with(subset(res, logFC > log2(1) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="lightcoral"))
+  with(subset(res, logFC < log2(1) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="lightblue"))
+  with(subset(res, logFC > log2(threshold) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="red"))
+  with(subset(res, logFC < log2(1/threshold) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="blue"))
+  with(subset(res, logpval < -log10(0.05) & abs(logFC) > log2(threshold)), points(logFC, logpval, pch=20, col="gray"))
+  
+  abline(h=-log10(0.05), col="red", lwd=3)
+  abline(v=log2(1/threshold), col="grey", lty=2)
+  abline(v=log2(threshold), col="grey", lty=2)
+  UP <- nrow(subset(res, logFC > log2(threshold) & logpval > -log10(0.05)))
+  DO <- nrow(subset(res, logFC < log2(1/threshold) & logpval > -log10(0.05)))
+  legend("topleft", legend=c(parse(text=sprintf("Upregulated : %s",UP)),parse(text=sprintf("Downregulated : %s",DO))),col=c("red", "blue"), pch=16, cex=0.8)
+  
+```
+
+#### Significant variables
+According to the selection criteria mentioned above, __`r UP`__ variables are 
+significantly up and __`r DO`__ variables are significantly down.
+
+## Volcano plot for q values
+
+
+```{r}
+FC<-as.numeric(test[,7])
+Pvalue<-as.numeric(test[,8])
+threshold=1.5
+logFC <- log2(FC)
+wh <- which(Pvalue == 0)
+Pvalue[wh] <- 0.000001
+logpval <- -log10(Pvalue)
+res <- data.frame(cbind(logFC, logpval))
+  
+  with(res, plot(logFC, logpval, pch=20, ylab="q_value (in -log10)", 
+                 xlab="Fold change (in log2)"),cex.axis=3,cex.lab=3)
+  
+  # Add colored points: 
+  with(subset(res, logpval < -log10(0.05) ), points(logFC, logpval, pch=20, col="black"))
+  with(subset(res, logFC > log2(1) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="lightcoral"))
+  with(subset(res, logFC < log2(1) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="lightblue"))
+  with(subset(res, logFC > log2(threshold) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="red"))
+  with(subset(res, logFC < log2(1/threshold) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="blue"))
+  with(subset(res, logpval < -log10(0.05) & abs(logFC) > log2(threshold)), points(logFC, logpval, pch=20, col="gray"))
+  
+  abline(h=-log10(0.05), col="red", lwd=3)
+  abline(v=log2(1/threshold), col="grey", lty=2)
+  abline(v=log2(threshold), col="grey", lty=2)
+  UP <- nrow(subset(res, logFC > log2(threshold) & logpval > -log10(0.05)))
+  DO <- nrow(subset(res, logFC < log2(1/threshold) & logpval > -log10(0.05)))
+  legend("topleft", legend=c(parse(text=sprintf("Upregulated : %s",UP)),parse(text=sprintf("Downregulated : %s",DO))),col=c("red", "blue"), pch=16, cex=0.8)
+  
+```
+
+
+#### Significant variables
+According to the selection criteria mentioned above, __`r UP`__ variables are 
+significantly up and __`r DO`__ variables are significantly down.
+
+## AUC and Fold changes for each Biomarker
+```{r aucfoldchangetable4}
+HC=data0_1[which(data0_1$Cohort=="HC"),]
+AD=data0_1[which(data0_1$Cohort=="AD"),]
+n=ncol(HC)
+dat=rbind(HC, AD)
+dataX=as.matrix(dat[,8:n])
+dataY=as.factor(dat$Cohort)
+n=ncol(dataX)
+AUC<-AUC_indiv(dataX,dataY,n,"AD vs HC")
+AUC<-as.data.frame(AUC)
+AUC$auc<-as.numeric(AUC$auc)
+n<-length(AUC$auc)
+for (i in 1:n)  
+
+if (AUC[i,2]<0.50) 
+  {
+  AUC[i,2]=1-AUC[i,2]
+} 
+
+test<-as.data.frame(test)
+test<- test %>% rename(biomarker=variable, HC_Mean="mean group2", HC_SD="sd group2", AD_Mean="mean group1", AD_SD="sd group1", pvalues=pvalue, foldchange=foldchange, qvalues="pvalue adjusted")
+final<-merge(AUC, test, by="biomarker", all=FALSE )
+final<-data.frame(final)
+final$auc=as.numeric(final$auc)
+final$AD_Mean=as.numeric(final$AD_Mean)
+final$AD_SD =as.numeric(final$AD_SD)
+final$HC_Mean =as.numeric(final$HC_Mean)
+final$HC_SD =as.numeric(final$HC_SD)
+final$pvalues =as.numeric(final$pvalues)
+final$foldchange =as.numeric(final$foldchange)
+final$qvalues =as.numeric(final$qvalues)
+final[,-1] <-round(final[,-1],3)
+datatable(final)
+write.csv(final,"finaltableADvsHC.csv",row.names=F)
+```
+
+
+## List of significant biomarker after gender and Age effects adjusted
+
+
+```{r}
+b1=as.data.frame(final[which(final$qvalues<0.10),1])## Select significant biomarkers 
+b1=as.character(b1[,1])
+b1
+newdata=data0_1[,c(1:7)]
+c=colnames(data0_1)
+for( j in 1:length(b1)) {
+  newdata=cbind(newdata,data0_1[,which(c==b1[j])])
+}
+colnames(newdata)[-c(1:7)]=b1
+data2=as.data.frame(newdata)##data involving only significant biomarkers based on q values of group 
+
+significantadjbiomarkers <- data2[,-c(1:7)]
+
+```
+
+
+## Correlations of Significant Biomarkers
+
+```{r, fig.dim = c(8, 8)}
+correlations <- cor(as.matrix(significantadjbiomarkers), use = "pairwise.complete.obs")
+corrplot::corrplot(correlations, method = "square", order = "hclust",number.font = 5,
+                   main = "Correlations between significant biomarkers ", tl.cex = 0.5, mar = c(0, 0, 3, 0),
+                   tl.col = 1)
+
+```
+
+
+## Boxplot for significant Biomarkers for Age, gender adjusted data
+```{r, fig.dim = c(8, 8)}
+
+data2<-as.data.frame(data2)##converting significant variables into longdataset
+sigbiomarkersadj <- colnames(data2)[8:length(data2)]
+metadata <- c("Gender", "Allgr", "Cohort", "Age" )
+
+long_datasetsig <- melt(data2, id.vars = c('sampleID' , metadata), variable.name = "ASSAY", 
+                     value.name = "value", measure.vars = sigbiomarkersadj)
+                     
+long_datasetsig <- subset(long_datasetsig, Cohort!="DLB")##NAD olanlari cikarmak icin
+  
+ggplot(long_datasetsig,aes(x = Cohort, col = Cohort, y = value)) + 
+  theme_minimal() +
+  geom_boxplot() + facet_wrap(ASSAY~., scales = "free") + scale_color_discrete(guide=F) + ggtitle("Biomarker values with significant group effect") +
+  theme(strip.text = element_text(size=rel(0.6)))
+
+```
+
+# Comparison of miAD vs HC
+## Volcano plot for p values
+Student t test the p-values and the q-values FC distributions are displayed below.
+
+```{r, messAge=FALSE}
+library(remotes)
+# SupervisedAnalysisPackage
+HC=data0_1[which(data0_1$Allgr=="HC"),]
+miAD=data0_1[which(data0_1$Allgr=="miAD"),]
+n=ncol(HC)
+dat=rbind(HC, miAD)
+test=student_fdr(8,n,miAD,HC,F,2,"miAD vs HC")
+FC<-as.numeric(test[,7])
+Pvalue<-as.numeric(test[,6])
+threshold=1.5
+logFC <- log2(FC)
+wh <- which(Pvalue == 0)
+Pvalue[wh] <- 0.000001
+logpval <- -log10(Pvalue)
+res <- data.frame(cbind(logFC, logpval))
+  
+  with(res, plot(logFC, logpval, pch=20, ylab="p_value (in -log10)", 
+                 xlab="Fold change (in log2)"),cex.axis=3,cex.lab=3)
+  
+  # Add colored points: 
+  with(subset(res, logpval < -log10(0.05) ), points(logFC, logpval, pch=20, col="black"))
+  with(subset(res, logFC > log2(1) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="lightcoral"))
+  with(subset(res, logFC < log2(1) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="lightblue"))
+  with(subset(res, logFC > log2(threshold) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="red"))
+  with(subset(res, logFC < log2(1/threshold) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="blue"))
+  with(subset(res, logpval < -log10(0.05) & abs(logFC) > log2(threshold)), points(logFC, logpval, pch=20, col="gray"))
+  
+  abline(h=-log10(0.05), col="red", lwd=3)
+  abline(v=log2(1/threshold), col="grey", lty=2)
+  abline(v=log2(threshold), col="grey", lty=2)
+  UP <- nrow(subset(res, logFC > log2(threshold) & logpval > -log10(0.05)))
+  DO <- nrow(subset(res, logFC < log2(1/threshold) & logpval > -log10(0.05)))
+  legend("topleft", legend=c(parse(text=sprintf("Upregulated : %s",UP)),parse(text=sprintf("Downregulated : %s",DO))),col=c("red", "blue"), pch=16, cex=0.8)
+  
+```
+
+#### Significant variables
+According to the selection criteria mentioned above, __`r UP`__ variables are 
+significantly up and __`r DO`__ variables are significantly down.
+
+## Volcano plot for q values
+
+
+```{r}
+FC<-as.numeric(test[,7])
+Pvalue<-as.numeric(test[,8])
+threshold=1.5
+logFC <- log2(FC)
+wh <- which(Pvalue == 0)
+Pvalue[wh] <- 0.000001
+logpval <- -log10(Pvalue)
+res <- data.frame(cbind(logFC, logpval))
+  
+  with(res, plot(logFC, logpval, pch=20, ylab="q_value (in -log10)", 
+                 xlab="Fold change (in log2)"),cex.axis=3,cex.lab=3)
+  
+  # Add colored points: 
+  with(subset(res, logpval < -log10(0.05) ), points(logFC, logpval, pch=20, col="black"))
+  with(subset(res, logFC > log2(1) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="lightcoral"))
+  with(subset(res, logFC < log2(1) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="lightblue"))
+  with(subset(res, logFC > log2(threshold) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="red"))
+  with(subset(res, logFC < log2(1/threshold) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="blue"))
+  with(subset(res, logpval < -log10(0.05) & abs(logFC) > log2(threshold)), points(logFC, logpval, pch=20, col="gray"))
+  
+  abline(h=-log10(0.05), col="red", lwd=3)
+  abline(v=log2(1/threshold), col="grey", lty=2)
+  abline(v=log2(threshold), col="grey", lty=2)
+  UP <- nrow(subset(res, logFC > log2(threshold) & logpval > -log10(0.05)))
+  DO <- nrow(subset(res, logFC < log2(1/threshold) & logpval > -log10(0.05)))
+  legend("topleft", legend=c(parse(text=sprintf("Upregulated : %s",UP)),parse(text=sprintf("Downregulated : %s",DO))),col=c("red", "blue"), pch=16, cex=0.8)
+  
+```
+
+
+#### Significant variables
+According to the selection criteria mentioned above, __`r UP`__ variables are 
+significantly up and __`r DO`__ variables are significantly down.
+
+## AUC and Fold changes for each Biomarker
+```{r aucfoldchangetable7}
+HC=data0_1[which(data0_1$Allgr=="HC"),]
+miAD=data0_1[which(data0_1$Allgr=="miAD"),]
+n=ncol(HC)
+dat=rbind(HC, miAD)
+dataX=as.matrix(dat[,8:n])
+dataY=as.factor(dat$Allgr)
+n=ncol(dataX)
+AUC<-AUC_indiv(dataX,dataY,n,"miAD vs HC")
+AUC<-as.data.frame(AUC)
+AUC$auc<-as.numeric(AUC$auc)
+n<-length(AUC$auc)
+for (i in 1:n)  
+
+if (AUC[i,2]<0.50) 
+  {
+  AUC[i,2]=1-AUC[i,2]
+} 
+
+test<-as.data.frame(test)
+test<- test %>% rename(biomarker=variable, HC_Mean="mean group2", HC_SD="sd group2", miAD_Mean="mean group1", miAD_SD="sd group1", pvalues=pvalue, foldchange=foldchange, qvalues="pvalue adjusted")
+final<-merge(AUC, test, by="biomarker", all=FALSE )
+final<-data.frame(final)
+final$auc=as.numeric(final$auc)
+final$miAD_Mean=as.numeric(final$miAD_Mean)
+final$miAD_SD =as.numeric(final$miAD_SD)
+final$HC_Mean =as.numeric(final$HC_Mean)
+final$HC_SD =as.numeric(final$HC_SD)
+final$pvalues =as.numeric(final$pvalues)
+final$foldchange =as.numeric(final$foldchange)
+final$qvalues =as.numeric(final$qvalues)
+final[,-1] <-round(final[,-1],3)
+datatable(final)
+write.csv(final,"finaltablemiADvsHC.csv",row.names=F)
+```
+
+
+## List of significant biomarker after gender and Age effects adjusted
+
+
+```{r}
+b1=as.data.frame(final[which(final$auc>0.69),1])## Select significant biomarkers 
+b1=as.character(b1[,1])
+b1
+newdata=data0_1[,c(1:7)]
+c=colnames(data0_1)
+for( j in 1:length(b1)) {
+  newdata=cbind(newdata,data0_1[,which(c==b1[j])])
+}
+colnames(newdata)[-c(1:7)]=b1
+data2=as.data.frame(newdata)##data involving only significant biomarkers based on q values of group 
+
+significantadjbiomarkers <- data2[,-c(1:7)]
+
+```
+
+
+## Correlations of Significant Biomarkers
+
+```{r, fig.dim = c(8, 8)}
+correlations <- cor(as.matrix(significantadjbiomarkers), use = "pairwise.complete.obs")
+corrplot::corrplot(correlations, method = "square", order = "hclust",number.font = 5,
+                   main = "Correlations between significant biomarkers ", tl.cex = 0.5, mar = c(0, 0, 3, 0),
+                   tl.col = 1)
+
+```
+
+
+## Boxplot for significant Biomarkers for Age, gender adjusted data
+```{r, fig.dim = c(8, 8)}
+
+data2<-as.data.frame(data2)##converting significant variables into longdataset
+sigbiomarkersadj <- colnames(data2)[8:length(data2)]
+metadata <- c("Gender", "Allgr", "Allgr", "Age" )
+
+long_datasetsig <- melt(data2, id.vars = c('sampleID' , metadata), variable.name = "ASSAY", 
+                     value.name = "value", measure.vars = sigbiomarkersadj)
+                     
+long_datasetsig <- subset(long_datasetsig, Allgr %in% c("miAD","HC"))##NAD olanlari cikarmak icin
+  
+ggplot(long_datasetsig,aes(x = Allgr, col = Allgr, y = value)) + 
+  theme_minimal() +
+  geom_boxplot() + facet_wrap(ASSAY~., scales = "free") + scale_color_discrete(guide=F) + ggtitle("Biomarker values with significant group effect") +
+  theme(strip.text = element_text(size=rel(0.6)))
+
+```
+
+
+
+# Comparison of msAD vs HC
+## Volcano plot for p values
+Student t test the p-values and the q-values FC distributions are displayed below.
+
+```{r, messAge=FALSE}
+library(remotes)
+# # SupervisedAnalysisPackage
+HC=data0_1[which(data0_1$Allgr=="HC"),]
+msAD=data0_1[which(data0_1$Allgr=="msAD"),]
+n=ncol(HC)
+dat=rbind(HC, msAD)
+test=student_fdr(8,n,msAD,HC,F,2,"msAD vs HC")
+FC<-as.numeric(test[,7])
+Pvalue<-as.numeric(test[,6])
+threshold=1.5
+logFC <- log2(FC)
+wh <- which(Pvalue == 0)
+Pvalue[wh] <- 0.000001
+logpval <- -log10(Pvalue)
+res <- data.frame(cbind(logFC, logpval))
+  
+  with(res, plot(logFC, logpval, pch=20, ylab="p_value (in -log10)", 
+                 xlab="Fold change (in log2)"),cex.axis=3,cex.lab=3)
+  
+  # Add colored points: 
+  with(subset(res, logpval < -log10(0.05) ), points(logFC, logpval, pch=20, col="black"))
+  with(subset(res, logFC > log2(1) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="lightcoral"))
+  with(subset(res, logFC < log2(1) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="lightblue"))
+  with(subset(res, logFC > log2(threshold) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="red"))
+  with(subset(res, logFC < log2(1/threshold) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="blue"))
+  with(subset(res, logpval < -log10(0.05) & abs(logFC) > log2(threshold)), points(logFC, logpval, pch=20, col="gray"))
+  
+  abline(h=-log10(0.05), col="red", lwd=3)
+  abline(v=log2(1/threshold), col="grey", lty=2)
+  abline(v=log2(threshold), col="grey", lty=2)
+  UP <- nrow(subset(res, logFC > log2(threshold) & logpval > -log10(0.05)))
+  DO <- nrow(subset(res, logFC < log2(1/threshold) & logpval > -log10(0.05)))
+  legend("topleft", legend=c(parse(text=sprintf("Upregulated : %s",UP)),parse(text=sprintf("Downregulated : %s",DO))),col=c("red", "blue"), pch=16, cex=0.8)
+  
+```
+
+#### Significant variables
+According to the selection criteria mentioned above, __`r UP`__ variables are 
+significantly up and __`r DO`__ variables are significantly down.
+
+## Volcano plot for q values
+
+
+```{r}
+FC<-as.numeric(test[,7])
+Pvalue<-as.numeric(test[,8])
+threshold=1.5
+logFC <- log2(FC)
+wh <- which(Pvalue == 0)
+Pvalue[wh] <- 0.000001
+logpval <- -log10(Pvalue)
+res <- data.frame(cbind(logFC, logpval))
+  
+  with(res, plot(logFC, logpval, pch=20, ylab="q_value (in -log10)", 
+                 xlab="Fold change (in log2)"),cex.axis=3,cex.lab=3)
+  
+  # Add colored points: 
+  with(subset(res, logpval < -log10(0.05) ), points(logFC, logpval, pch=20, col="black"))
+  with(subset(res, logFC > log2(1) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="lightcoral"))
+  with(subset(res, logFC < log2(1) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="lightblue"))
+  with(subset(res, logFC > log2(threshold) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="red"))
+  with(subset(res, logFC < log2(1/threshold) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="blue"))
+  with(subset(res, logpval < -log10(0.05) & abs(logFC) > log2(threshold)), points(logFC, logpval, pch=20, col="gray"))
+  
+  abline(h=-log10(0.05), col="red", lwd=3)
+  abline(v=log2(1/threshold), col="grey", lty=2)
+  abline(v=log2(threshold), col="grey", lty=2)
+  UP <- nrow(subset(res, logFC > log2(threshold) & logpval > -log10(0.05)))
+  DO <- nrow(subset(res, logFC < log2(1/threshold) & logpval > -log10(0.05)))
+  legend("topleft", legend=c(parse(text=sprintf("Upregulated : %s",UP)),parse(text=sprintf("Downregulated : %s",DO))),col=c("red", "blue"), pch=16, cex=0.8)
+  
+```
+
+
+#### Significant variables
+According to the selection criteria mentioned above, __`r UP`__ variables are 
+significantly up and __`r DO`__ variables are significantly down.
+
+## AUC and Fold changes for each Biomarker
+```{r aucfoldchangetable}
+HC=data0_1[which(data0_1$Allgr=="HC"),]
+msAD=data0_1[which(data0_1$Allgr=="msAD"),]
+n=ncol(HC)
+dat=rbind(HC, msAD)
+dataX=as.matrix(dat[,8:n])
+dataY=as.factor(dat$Allgr)
+n=ncol(dataX)
+AUC<-AUC_indiv(dataX,dataY,n,"msAD vs HC")
+AUC<-as.data.frame(AUC)
+AUC$auc<-as.numeric(AUC$auc)
+n<-length(AUC$auc)
+for (i in 1:n)  
+
+if (AUC[i,2]<0.50) 
+  {
+  AUC[i,2]=1-AUC[i,2]
+} 
+
+test<-as.data.frame(test)
+test<- test %>% rename(biomarker=variable, HC_Mean="mean group2", HC_SD="sd group2", msAD_Mean="mean group1", msAD_SD="sd group1", pvalues=pvalue, foldchange=foldchange, qvalues="pvalue adjusted")
+final<-merge(AUC, test, by="biomarker", all=FALSE )
+final<-data.frame(final)
+final$auc=as.numeric(final$auc)
+final$msAD_Mean=as.numeric(final$msAD_Mean)
+final$msAD_SD =as.numeric(final$msAD_SD)
+final$HC_Mean =as.numeric(final$HC_Mean)
+final$HC_SD =as.numeric(final$HC_SD)
+final$pvalues =as.numeric(final$pvalues)
+final$foldchange =as.numeric(final$foldchange)
+final$qvalues =as.numeric(final$qvalues)
+final[,-1] <-round(final[,-1],3)
+datatable(final)
+write.csv(final,"finaltablemsADvsHC.csv",row.names=F)
+```
+
+
+## List of significant biomarker after gender and Age effects adjusted
+
+
+```{r}
+b1=as.data.frame(final[which(final$auc>0.69),1])## Select significant biomarkers 
+b1=as.character(b1[,1])
+b1
+newdata=data0_1[,c(1:7)]
+c=colnames(data0_1)
+for( j in 1:length(b1)) {
+  newdata=cbind(newdata,data0_1[,which(c==b1[j])])
+}
+colnames(newdata)[-c(1:7)]=b1
+data2=as.data.frame(newdata)##data involving only significant biomarkers based on q values of group 
+
+significantadjbiomarkers <- data2[,-c(1:7)]
+
+```
+
+
+## Correlations of Significant Biomarkers
+
+```{r, fig.dim = c(8, 8)}
+correlations <- cor(as.matrix(significantadjbiomarkers), use = "pairwise.complete.obs")
+corrplot::corrplot(correlations, method = "square", order = "hclust",number.font = 5,
+                   main = "Correlations between significant biomarkers ", tl.cex = 0.5, mar = c(0, 0, 3, 0),
+                   tl.col = 1)
+
+```
+
+
+## Boxplot for significant Biomarkers for Age, gender adjusted data
+```{r, fig.dim = c(8, 8)}
+
+data2<-as.data.frame(data2)##converting significant variables into longdataset
+sigbiomarkersadj <- colnames(data2)[8:length(data2)]
+metadata <- c("Gender", "Allgr", "Allgr", "Age" )
+
+long_datasetsig <- melt(data2, id.vars = c('sampleID' , metadata), variable.name = "ASSAY", 
+                     value.name = "value", measure.vars = sigbiomarkersadj)
+                     
+long_datasetsig <- subset(long_datasetsig, Allgr %in% c("msAD","HC"))##NAD olanlari cikarmak icin
+  
+ggplot(long_datasetsig,aes(x = Allgr, col = Allgr, y = value)) + 
+  theme_minimal() +
+  geom_boxplot() + facet_wrap(ASSAY~., scales = "free") + scale_color_discrete(guide=F) + ggtitle("Biomarker values with significant group effect") +
+  theme(strip.text = element_text(size=rel(0.6)))
+
+```
+
+# Comparison of miAD vs DLB
+## Volcano plot for p values
+Student t test the p-values and the q-values FC distributions are displayed below.
+
+```{r, messAge=FALSE}
+library(remotes)
+# SupervisedAnalysisPackage
+DLB=data0_1[which(data0_1$Allgr=="DLB"),]
+miAD=data0_1[which(data0_1$Allgr=="miAD"),]
+n=ncol(DLB)
+dat=rbind(DLB, miAD)
+test=student_fdr(8,n,miAD,DLB,F,2,"miAD vs DLB")
+FC<-as.numeric(test[,7])
+Pvalue<-as.numeric(test[,6])
+threshold=1.5
+logFC <- log2(FC)
+wh <- which(Pvalue == 0)
+Pvalue[wh] <- 0.000001
+logpval <- -log10(Pvalue)
+res <- data.frame(cbind(logFC, logpval))
+  
+  with(res, plot(logFC, logpval, pch=20, ylab="p_value (in -log10)", 
+                 xlab="Fold change (in log2)"),cex.axis=3,cex.lab=3)
+  
+  # Add colored points: 
+  with(subset(res, logpval < -log10(0.05) ), points(logFC, logpval, pch=20, col="black"))
+  with(subset(res, logFC > log2(1) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="lightcoral"))
+  with(subset(res, logFC < log2(1) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="lightblue"))
+  with(subset(res, logFC > log2(threshold) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="red"))
+  with(subset(res, logFC < log2(1/threshold) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="blue"))
+  with(subset(res, logpval < -log10(0.05) & abs(logFC) > log2(threshold)), points(logFC, logpval, pch=20, col="gray"))
+  
+  abline(h=-log10(0.05), col="red", lwd=3)
+  abline(v=log2(1/threshold), col="grey", lty=2)
+  abline(v=log2(threshold), col="grey", lty=2)
+  UP <- nrow(subset(res, logFC > log2(threshold) & logpval > -log10(0.05)))
+  DO <- nrow(subset(res, logFC < log2(1/threshold) & logpval > -log10(0.05)))
+  legend("topleft", legend=c(parse(text=sprintf("Upregulated : %s",UP)),parse(text=sprintf("Downregulated : %s",DO))),col=c("red", "blue"), pch=16, cex=0.8)
+  
+```
+
+#### Significant variables
+According to the selection criteria mentioned above, __`r UP`__ variables are 
+significantly up and __`r DO`__ variables are significantly down.
+
+## Volcano plot for q values
+
+
+```{r}
+FC<-as.numeric(test[,7])
+Pvalue<-as.numeric(test[,8])
+threshold=1.5
+logFC <- log2(FC)
+wh <- which(Pvalue == 0)
+Pvalue[wh] <- 0.000001
+logpval <- -log10(Pvalue)
+res <- data.frame(cbind(logFC, logpval))
+  
+  with(res, plot(logFC, logpval, pch=20, ylab="q_value (in -log10)", 
+                 xlab="Fold change (in log2)"),cex.axis=3,cex.lab=3)
+  
+  # Add colored points: 
+  with(subset(res, logpval < -log10(0.05) ), points(logFC, logpval, pch=20, col="black"))
+  with(subset(res, logFC > log2(1) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="lightcoral"))
+  with(subset(res, logFC < log2(1) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="lightblue"))
+  with(subset(res, logFC > log2(threshold) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="red"))
+  with(subset(res, logFC < log2(1/threshold) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="blue"))
+  with(subset(res, logpval < -log10(0.05) & abs(logFC) > log2(threshold)), points(logFC, logpval, pch=20, col="gray"))
+  
+  abline(h=-log10(0.05), col="red", lwd=3)
+  abline(v=log2(1/threshold), col="grey", lty=2)
+  abline(v=log2(threshold), col="grey", lty=2)
+  UP <- nrow(subset(res, logFC > log2(threshold) & logpval > -log10(0.05)))
+  DO <- nrow(subset(res, logFC < log2(1/threshold) & logpval > -log10(0.05)))
+  legend("topleft", legend=c(parse(text=sprintf("Upregulated : %s",UP)),parse(text=sprintf("Downregulated : %s",DO))),col=c("red", "blue"), pch=16, cex=0.8)
+  
+```
+
+
+#### Significant variables
+According to the selection criteria mentioned above, __`r UP`__ variables are 
+significantly up and __`r DO`__ variables are significantly down.
+
+## AUC and Fold changes for each Biomarker
+```{r aucfoldchangetable8}
+DLB=data0_1[which(data0_1$Allgr=="DLB"),]
+miAD=data0_1[which(data0_1$Allgr=="miAD"),]
+n=ncol(DLB)
+dat=rbind(DLB, miAD)
+dataX=as.matrix(dat[,8:n])
+dataY=as.factor(dat$Allgr)
+n=ncol(dataX)
+AUC<-AUC_indiv(dataX,dataY,n,"miAD vs DLB")
+AUC<-as.data.frame(AUC)
+AUC$auc<-as.numeric(AUC$auc)
+n<-length(AUC$auc)
+for (i in 1:n)  
+
+if (AUC[i,2]<0.50) 
+  {
+  AUC[i,2]=1-AUC[i,2]
+} 
+
+test<-as.data.frame(test)
+test<- test %>% rename(biomarker=variable, DLB_Mean="mean group2", DLB_SD="sd group2", miAD_Mean="mean group1", miAD_SD="sd group1", pvalues=pvalue, foldchange=foldchange, qvalues="pvalue adjusted")
+final<-merge(AUC, test, by="biomarker", all=FALSE )
+final<-data.frame(final)
+final$auc=as.numeric(final$auc)
+final$miAD_Mean=as.numeric(final$miAD_Mean)
+final$miAD_SD =as.numeric(final$miAD_SD)
+final$DLB_Mean =as.numeric(final$DLB_Mean)
+final$DLB_SD =as.numeric(final$DLB_SD)
+final$pvalues =as.numeric(final$pvalues)
+final$foldchange =as.numeric(final$foldchange)
+final$qvalues =as.numeric(final$qvalues)
+final[,-1] <-round(final[,-1],3)
+datatable(final)
+write.csv(final,"finaltablemiADvsDLB.csv",row.names=F)
+```
+
+
+## List of significant biomarker after gender and Age effects adjusted
+
+
+```{r}
+b1=as.data.frame(final[which(final$auc>0.69),1])## Select significant biomarkers 
+b1=as.character(b1[,1])
+b1
+newdata=data0_1[,c(1:7)]
+c=colnames(data0_1)
+for( j in 1:length(b1)) {
+  newdata=cbind(newdata,data0_1[,which(c==b1[j])])
+}
+colnames(newdata)[-c(1:7)]=b1
+data2=as.data.frame(newdata)##data involving only significant biomarkers based on q values of group 
+
+significantadjbiomarkers <- data2[,-c(1:7)]
+
+```
+
+
+## Correlations of Significant Biomarkers
+
+```{r, fig.dim = c(8, 8)}
+correlations <- cor(as.matrix(significantadjbiomarkers), use = "pairwise.complete.obs")
+corrplot::corrplot(correlations, method = "square", order = "hclust",number.font = 5,
+                   main = "Correlations between significant biomarkers ", tl.cex = 0.5, mar = c(0, 0, 3, 0),
+                   tl.col = 1)
+
+```
+
+
+## Boxplot for significant Biomarkers for Age, gender adjusted data
+```{r, fig.dim = c(8, 8)}
+
+data2<-as.data.frame(data2)##converting significant variables into longdataset
+sigbiomarkersadj <- colnames(data2)[8:length(data2)]
+metadata <- c("Gender", "Allgr", "Allgr", "Age" )
+
+long_datasetsig <- melt(data2, id.vars = c('sampleID' , metadata), variable.name = "ASSAY", 
+                     value.name = "value", measure.vars = sigbiomarkersadj)
+                     
+long_datasetsig <- subset(long_datasetsig, Allgr %in% c("miAD","DLB"))##NAD olanlari cikarmak icin
+  
+ggplot(long_datasetsig,aes(x = Allgr, col = Allgr, y = value)) + 
+  theme_minimal() +
+  geom_boxplot() + facet_wrap(ASSAY~., scales = "free") + scale_color_discrete(guide=F) + ggtitle("Biomarker values with significant group effect") +
+  theme(strip.text = element_text(size=rel(0.6)))
+
+```
+
+
+
+
+
+# Comparison of msAD vs DLB
+## Volcano plot for p values
+Student t test the p-values and the q-values FC distributions are displayed below.
+
+```{r, messAge=FALSE}
+library(remotes)
+# # SupervisedAnalysisPackage
+DLB=data0_1[which(data0_1$Allgr=="DLB"),]
+msAD=data0_1[which(data0_1$Allgr=="msAD"),]
+n=ncol(DLB)
+dat=rbind(DLB, msAD)
+test=student_fdr(8,n,msAD,DLB,F,2,"msAD vs DLB")
+FC<-as.numeric(test[,7])
+Pvalue<-as.numeric(test[,6])
+threshold=1.5
+logFC <- log2(FC)
+wh <- which(Pvalue == 0)
+Pvalue[wh] <- 0.000001
+logpval <- -log10(Pvalue)
+res <- data.frame(cbind(logFC, logpval))
+  
+  with(res, plot(logFC, logpval, pch=20, ylab="p_value (in -log10)", 
+                 xlab="Fold change (in log2)"),cex.axis=3,cex.lab=3)
+  
+  # Add colored points: 
+  with(subset(res, logpval < -log10(0.05) ), points(logFC, logpval, pch=20, col="black"))
+  with(subset(res, logFC > log2(1) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="lightcoral"))
+  with(subset(res, logFC < log2(1) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="lightblue"))
+  with(subset(res, logFC > log2(threshold) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="red"))
+  with(subset(res, logFC < log2(1/threshold) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="blue"))
+  with(subset(res, logpval < -log10(0.05) & abs(logFC) > log2(threshold)), points(logFC, logpval, pch=20, col="gray"))
+  
+  abline(h=-log10(0.05), col="red", lwd=3)
+  abline(v=log2(1/threshold), col="grey", lty=2)
+  abline(v=log2(threshold), col="grey", lty=2)
+  UP <- nrow(subset(res, logFC > log2(threshold) & logpval > -log10(0.05)))
+  DO <- nrow(subset(res, logFC < log2(1/threshold) & logpval > -log10(0.05)))
+  legend("topleft", legend=c(parse(text=sprintf("Upregulated : %s",UP)),parse(text=sprintf("Downregulated : %s",DO))),col=c("red", "blue"), pch=16, cex=0.8)
+  
+```
+
+#### Significant variables
+According to the selection criteria mentioned above, __`r UP`__ variables are 
+significantly up and __`r DO`__ variables are significantly down.
+
+## Volcano plot for q values
+
+
+```{r}
+FC<-as.numeric(test[,7])
+Pvalue<-as.numeric(test[,8])
+threshold=1.5
+logFC <- log2(FC)
+wh <- which(Pvalue == 0)
+Pvalue[wh] <- 0.000001
+logpval <- -log10(Pvalue)
+res <- data.frame(cbind(logFC, logpval))
+  
+  with(res, plot(logFC, logpval, pch=20, ylab="q_value (in -log10)", 
+                 xlab="Fold change (in log2)"),cex.axis=3,cex.lab=3)
+  
+  # Add colored points: 
+  with(subset(res, logpval < -log10(0.05) ), points(logFC, logpval, pch=20, col="black"))
+  with(subset(res, logFC > log2(1) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="lightcoral"))
+  with(subset(res, logFC < log2(1) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="lightblue"))
+  with(subset(res, logFC > log2(threshold) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="red"))
+  with(subset(res, logFC < log2(1/threshold) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="blue"))
+  with(subset(res, logpval < -log10(0.05) & abs(logFC) > log2(threshold)), points(logFC, logpval, pch=20, col="gray"))
+  
+  abline(h=-log10(0.05), col="red", lwd=3)
+  abline(v=log2(1/threshold), col="grey", lty=2)
+  abline(v=log2(threshold), col="grey", lty=2)
+  UP <- nrow(subset(res, logFC > log2(threshold) & logpval > -log10(0.05)))
+  DO <- nrow(subset(res, logFC < log2(1/threshold) & logpval > -log10(0.05)))
+  legend("topleft", legend=c(parse(text=sprintf("Upregulated : %s",UP)),parse(text=sprintf("Downregulated : %s",DO))),col=c("red", "blue"), pch=16, cex=0.8)
+  
+```
+
+
+#### Significant variables
+According to the selection criteria mentioned above, __`r UP`__ variables are 
+significantly up and __`r DO`__ variables are significantly down.
+
+## AUC and Fold changes for each Biomarker
+```{r aucfoldchangetable9}
+DLB=data0_1[which(data0_1$Allgr=="DLB"),]
+msAD=data0_1[which(data0_1$Allgr=="msAD"),]
+n=ncol(DLB)
+dat=rbind(DLB, msAD)
+dataX=as.matrix(dat[,8:n])
+dataY=as.factor(dat$Allgr)
+n=ncol(dataX)
+AUC<-AUC_indiv(dataX,dataY,n,"msAD vs DLB")
+AUC<-as.data.frame(AUC)
+AUC$auc<-as.numeric(AUC$auc)
+n<-length(AUC$auc)
+for (i in 1:n)  
+
+if (AUC[i,2]<0.50) 
+  {
+  AUC[i,2]=1-AUC[i,2]
+} 
+
+test<-as.data.frame(test)
+test<- test %>% rename(biomarker=variable, DLB_Mean="mean group2", DLB_SD="sd group2", msAD_Mean="mean group1", msAD_SD="sd group1", pvalues=pvalue, foldchange=foldchange, qvalues="pvalue adjusted")
+final<-merge(AUC, test, by="biomarker", all=FALSE )
+final<-data.frame(final)
+final$auc=as.numeric(final$auc)
+final$msAD_Mean=as.numeric(final$msAD_Mean)
+final$msAD_SD =as.numeric(final$msAD_SD)
+final$DLB_Mean =as.numeric(final$DLB_Mean)
+final$DLB_SD =as.numeric(final$DLB_SD)
+final$pvalues =as.numeric(final$pvalues)
+final$foldchange =as.numeric(final$foldchange)
+final$qvalues =as.numeric(final$qvalues)
+final[,-1] <-round(final[,-1],3)
+datatable(final)
+write.csv(final,"finaltablemsADvsDLB.csv",row.names=F)
+```
+
+
+## List of significant biomarker after gender and Age effects adjusted
+
+
+```{r}
+b1=as.data.frame(final[which(final$auc>0.69),1])## Select significant biomarkers 
+b1=as.character(b1[,1])
+b1
+newdata=data0_1[,c(1:7)]
+c=colnames(data0_1)
+for( j in 1:length(b1)) {
+  newdata=cbind(newdata,data0_1[,which(c==b1[j])])
+}
+colnames(newdata)[-c(1:7)]=b1
+data2=as.data.frame(newdata)##data involving only significant biomarkers based on q values of group 
+
+significantadjbiomarkers <- data2[,-c(1:7)]
+
+```
+
+
+## Correlations of Significant Biomarkers
+
+```{r, fig.dim = c(8, 8)}
+correlations <- cor(as.matrix(significantadjbiomarkers), use = "pairwise.complete.obs")
+corrplot::corrplot(correlations, method = "square", order = "hclust",number.font = 5,
+                   main = "Correlations between significant biomarkers ", tl.cex = 0.5, mar = c(0, 0, 3, 0),
+                   tl.col = 1)
+
+```
+
+
+## Boxplot for significant Biomarkers for Age, gender adjusted data
+```{r, fig.dim = c(8, 8)}
+
+data2<-as.data.frame(data2)##converting significant variables into longdataset
+sigbiomarkersadj <- colnames(data2)[8:length(data2)]
+metadata <- c("Gender", "Allgr", "Allgr", "Age" )
+
+long_datasetsig <- melt(data2, id.vars = c('sampleID' , metadata), variable.name = "ASSAY", 
+                     value.name = "value", measure.vars = sigbiomarkersadj)
+                     
+long_datasetsig <- subset(long_datasetsig, Allgr %in% c("msAD","DLB"))##NAD olanlari cikarmak icin
+  
+ggplot(long_datasetsig,aes(x = Allgr, col = Allgr, y = value)) + 
+  theme_minimal() +
+  geom_boxplot() + facet_wrap(ASSAY~., scales = "free") + scale_color_discrete(guide=F) + ggtitle("Biomarker values with significant group effect") +
+  theme(strip.text = element_text(size=rel(0.6)))
+
+```
+
+
+
+
+
+# Comparison of miAD vs msAD
+## Volcano plot for p values
+Student t test the p-values and the q-values FC distributions are displayed below.
+
+```{r, messAge=FALSE}
+library(remotes)
+# SupervisedAnalysisPackage
+msAD=data0_1[which(data0_1$Allgr=="msAD"),]
+miAD=data0_1[which(data0_1$Allgr=="miAD"),]
+n=ncol(msAD)
+dat=rbind(msAD, miAD)
+test=student_fdr(8,n,miAD,msAD,F,2,"miAD vs msAD")
+FC<-as.numeric(test[,7])
+Pvalue<-as.numeric(test[,6])
+threshold=1.5
+logFC <- log2(FC)
+wh <- which(Pvalue == 0)
+Pvalue[wh] <- 0.000001
+logpval <- -log10(Pvalue)
+res <- data.frame(cbind(logFC, logpval))
+  
+  with(res, plot(logFC, logpval, pch=20, ylab="p_value (in -log10)", 
+                 xlab="Fold change (in log2)"),cex.axis=3,cex.lab=3)
+  
+  # Add colored points: 
+  with(subset(res, logpval < -log10(0.05) ), points(logFC, logpval, pch=20, col="black"))
+  with(subset(res, logFC > log2(1) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="lightcoral"))
+  with(subset(res, logFC < log2(1) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="lightblue"))
+  with(subset(res, logFC > log2(threshold) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="red"))
+  with(subset(res, logFC < log2(1/threshold) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="blue"))
+  with(subset(res, logpval < -log10(0.05) & abs(logFC) > log2(threshold)), points(logFC, logpval, pch=20, col="gray"))
+  
+  abline(h=-log10(0.05), col="red", lwd=3)
+  abline(v=log2(1/threshold), col="grey", lty=2)
+  abline(v=log2(threshold), col="grey", lty=2)
+  UP <- nrow(subset(res, logFC > log2(threshold) & logpval > -log10(0.05)))
+  DO <- nrow(subset(res, logFC < log2(1/threshold) & logpval > -log10(0.05)))
+  legend("topleft", legend=c(parse(text=sprintf("Upregulated : %s",UP)),parse(text=sprintf("Downregulated : %s",DO))),col=c("red", "blue"), pch=16, cex=0.8)
+  
+```
+
+#### Significant variables
+According to the selection criteria mentioned above, __`r UP`__ variables are 
+significantly up and __`r DO`__ variables are significantly down.
+
+## Volcano plot for q values
+
+
+```{r}
+FC<-as.numeric(test[,7])
+Pvalue<-as.numeric(test[,8])
+threshold=1.5
+logFC <- log2(FC)
+wh <- which(Pvalue == 0)
+Pvalue[wh] <- 0.000001
+logpval <- -log10(Pvalue)
+res <- data.frame(cbind(logFC, logpval))
+  
+  with(res, plot(logFC, logpval, pch=20, ylab="q_value (in -log10)", 
+                 xlab="Fold change (in log2)"),cex.axis=3,cex.lab=3)
+  
+  # Add colored points: 
+  with(subset(res, logpval < -log10(0.05) ), points(logFC, logpval, pch=20, col="black"))
+  with(subset(res, logFC > log2(1) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="lightcoral"))
+  with(subset(res, logFC < log2(1) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="lightblue"))
+  with(subset(res, logFC > log2(threshold) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="red"))
+  with(subset(res, logFC < log2(1/threshold) & logpval > -log10(0.05)), points(logFC,  logpval, pch=20, col="blue"))
+  with(subset(res, logpval < -log10(0.05) & abs(logFC) > log2(threshold)), points(logFC, logpval, pch=20, col="gray"))
+  
+  abline(h=-log10(0.05), col="red", lwd=3)
+  abline(v=log2(1/threshold), col="grey", lty=2)
+  abline(v=log2(threshold), col="grey", lty=2)
+  UP <- nrow(subset(res, logFC > log2(threshold) & logpval > -log10(0.05)))
+  DO <- nrow(subset(res, logFC < log2(1/threshold) & logpval > -log10(0.05)))
+  legend("topleft", legend=c(parse(text=sprintf("Upregulated : %s",UP)),parse(text=sprintf("Downregulated : %s",DO))),col=c("red", "blue"), pch=16, cex=0.8)
+  
+```
+
+
+#### Significant variables
+According to the selection criteria mentioned above, __`r UP`__ variables are 
+significantly up and __`r DO`__ variables are significantly down.
+
+## AUC and Fold changes for each Biomarker
+```{r aucfoldchangetable10}
+msAD=data0_1[which(data0_1$Allgr=="msAD"),]
+miAD=data0_1[which(data0_1$Allgr=="miAD"),]
+n=ncol(msAD)
+dat=rbind(msAD, miAD)
+dataX=as.matrix(dat[,8:n])
+dataY=as.factor(dat$Allgr)
+n=ncol(dataX)
+AUC<-AUC_indiv(dataX,dataY,n,"miAD vs msAD")
+AUC<-as.data.frame(AUC)
+AUC$auc<-as.numeric(AUC$auc)
+n<-length(AUC$auc)
+for (i in 1:n)  
+
+if (AUC[i,2]<0.50) 
+  {
+  AUC[i,2]=1-AUC[i,2]
+} 
+
+test<-as.data.frame(test)
+test<- test %>% rename(biomarker=variable, msAD_Mean="mean group2", msAD_SD="sd group2", miAD_Mean="mean group1", miAD_SD="sd group1", pvalues=pvalue, foldchange=foldchange, qvalues="pvalue adjusted")
+final<-merge(AUC, test, by="biomarker", all=FALSE )
+final<-data.frame(final)
+final$auc=as.numeric(final$auc)
+final$miAD_Mean=as.numeric(final$miAD_Mean)
+final$miAD_SD =as.numeric(final$miAD_SD)
+final$msAD_Mean =as.numeric(final$msAD_Mean)
+final$msAD_SD =as.numeric(final$msAD_SD)
+final$pvalues =as.numeric(final$pvalues)
+final$foldchange =as.numeric(final$foldchange)
+final$qvalues =as.numeric(final$qvalues)
+final[,-1] <-round(final[,-1],3)
+datatable(final)
+write.csv(final,"finaltablemiADvsmsAD.csv",row.names=F)
+```
+
+
+## List of significant biomarker after gender and Age effects adjusted
+
+
+```{r}
+b1=as.data.frame(final[which(final$auc>0.69),1])## Select significant biomarkers 
+b1=as.character(b1[,1])
+b1
+newdata=data0_1[,c(1:7)]
+c=colnames(data0_1)
+for( j in 1:length(b1)) {
+  newdata=cbind(newdata,data0_1[,which(c==b1[j])])
+}
+colnames(newdata)[-c(1:7)]=b1
+data2=as.data.frame(newdata)##data involving only significant biomarkers based on q values of group 
+
+significantadjbiomarkers <- data2[,-c(1:7)]
+
+```
+
+
+## Correlations of Significant Biomarkers
+
+```{r, fig.dim = c(8, 8)}
+correlations <- cor(as.matrix(significantadjbiomarkers), use = "pairwise.complete.obs")
+corrplot::corrplot(correlations, method = "square", order = "hclust",number.font = 5,
+                   main = "Correlations between significant biomarkers ", tl.cex = 0.5, mar = c(0, 0, 3, 0),
+                   tl.col = 1)
+
+```
+
+
+## Boxplot for significant Biomarkers for Age, gender adjusted data
+```{r, fig.dim = c(8, 8)}
+
+data2<-as.data.frame(data2)##converting significant variables into longdataset
+sigbiomarkersadj <- colnames(data2)[8:length(data2)]
+metadata <- c("Gender", "Allgr", "Allgr", "Age" )
+
+long_datasetsig <- melt(data2, id.vars = c('sampleID' , metadata), variable.name = "ASSAY", 
+                     value.name = "value", measure.vars = sigbiomarkersadj)
+                     
+long_datasetsig <- subset(long_datasetsig, Allgr %in% c("miAD","msAD"))##NAD olanlari cikarmak icin
+  
+ggplot(long_datasetsig,aes(x = Allgr, col = Allgr, y = value)) + 
+  theme_minimal() +
+  geom_boxplot() + facet_wrap(ASSAY~., scales = "free") + scale_color_discrete(guide=F) + ggtitle("Biomarker values with significant group effect") +
+  theme(strip.text = element_text(size=rel(0.6)))
+
+```
+
+
+

@@ -94,7 +94,7 @@ I developed a function *ad-hoc* `dataPreparation::add_missing_phenotypes`
 ```{r}
 # Load additional phenotype information
 all_samples_info <- 
-  data.table::fread(input = "../inst/extdata/additional_info.tsv", 
+  data.table::fread(input = "../inst/extdata/additional_info_updated.tsv.txt", 
                     sep = "\t")  |>
   as.data.frame()
 colnames(all_samples_info) <- gsub(pattern = " ", 
@@ -274,7 +274,7 @@ imputed_data <- elaborated_data$cleaned_data %>%
 # Select categories
 categories <- combined_data %>%
   dplyr::slice(-(elaborated_data$row_missing_percent)) %>%
-  dplyr::select(Sample.Description, Submission.Name)
+  dplyr::select(sampleID, Sample.Description, Allgr, Gender, Age, Submission.Name, )
 
 # Add categories to imputed data
 imputed_data$categories <- categories
